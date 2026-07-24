@@ -30,6 +30,9 @@
 // Add a row here (and the matching JSON file) to extend look-through coverage.
 const ETF_REGISTRY = [
   { ticker: 'CSPX', name: 'iShares Core S&P 500 UCITS ETF' },
+  { ticker: 'VUAA', name: 'Vanguard S&P 500 UCITS ETF (USD) Accumulating' },
+  { ticker: 'LSMC', name: 'Amundi MSCI Semiconductors UCITS ETF Acc' },
+  { ticker: 'NIFTYBEES', name: 'Nippon India ETF Nifty 50 BeES' },
 ];
 
 // Ticker -> display company name, used so a direct stock holding (e.g. AAPL)
@@ -52,6 +55,14 @@ const STOCK_NAME_MAP = {
   UNH: 'UnitedHealth Group',
   XOM: 'ExxonMobil',
   NFLX: 'Netflix',
+  TSM: 'Taiwan Semiconductor Manufacturing (TSMC)',
+  ASML: 'ASML Holding',
+  HAUTO: 'Höegh Autoliners',
+  'NOVO-B': 'Novo Nordisk',
+  NOV: 'Novo Nordisk',
+  NVO: 'Novo Nordisk',
+  SIE: 'Siemens',
+  ITC: 'ITC Limited',
 };
 
 function isKnownEtf(tickerUpper) {

@@ -1,0 +1,19 @@
+{
+  "ticker": "LSMC",
+  "name": "Amundi MSCI Semiconductors UCITS ETF Acc",
+  "type": "ETF",
+  "asOf": "2026-05-27",
+  "source": "justETF (justetf.com/en/etf-profile.html?isin=LU1900066033), top 10 holdings. SNAPSHOT — refresh from the issuer factsheet before relying on this.",
+  "holdings": [
+    { "company": "Nvidia", "weight": 22.40 },
+    { "company": "Taiwan Semiconductor Manufacturing (TSMC)", "weight": 13.03 },
+    { "company": "Broadcom", "weight": 11.89 },
+    { "company": "Micron Technology", "weight": 7.52 },
+    { "company": "SK Hynix", "weight": 5.89 },
+    { "company": "AMD", "weight": 5.80 },
+    { "company": "ASML Holding", "weight": 4.48 },
+    { "company": "Intel", "weight": 3.97 },
+    { "company": "Lam Research", "weight": 2.90 },
+    { "company": "Applied Materials", "weight": 2.58 }
+  ]
+}

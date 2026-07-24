@@ -1,0 +1,24 @@
+{
+  "ticker": "NIFTYBEES",
+  "name": "Nippon India ETF Nifty 50 BeES",
+  "type": "ETF",
+  "asOf": "2026-06-30",
+  "source": "stockanalysis.com/quote/nse/NIFTYBEES/holdings, top 15 holdings. SNAPSHOT — refresh from the issuer factsheet (nipponindiaim.com) before relying on this.",
+  "holdings": [
+    { "company": "HDFC Bank", "weight": 11.14 },
+    { "company": "ICICI Bank", "weight": 8.98 },
+    { "company": "Reliance Industries", "weight": 7.97 },
+    { "company": "Bharti Airtel", "weight": 5.13 },
+    { "company": "Larsen & Toubro", "weight": 4.42 },
+    { "company": "State Bank of India", "weight": 3.87 },
+    { "company": "Axis Bank", "weight": 3.52 },
+    { "company": "Infosys", "weight": 3.20 },
+    { "company": "Kotak Mahindra Bank", "weight": 2.63 },
+    { "company": "ITC Limited", "weight": 2.52 },
+    { "company": "Mahindra & Mahindra", "weight": 2.50 },
+    { "company": "Bajaj Finance", "weight": 2.46 },
+    { "company": "Tata Consultancy Services", "weight": 1.89 },
+    { "company": "Sun Pharmaceutical Industries", "weight": 1.80 },
+    { "company": "Eternal", "weight": 1.74 }
+  ]
+}

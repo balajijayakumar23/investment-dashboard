@@ -1,0 +1,18 @@
+{
+  "ticker": "VUAA",
+  "name": "Vanguard S&P 500 UCITS ETF (USD) Accumulating",
+  "type": "ETF",
+  "asOf": "2026-05-31",
+  "source": "justETF (justetf.com/en/etf-profile.html?isin=IE00BFMXXD54), top 10 holdings. Share classes of the same company (Alphabet A/C) are combined into one company row. SNAPSHOT — refresh from the issuer factsheet before relying on this.",
+  "holdings": [
+    { "company": "Nvidia", "weight": 7.87 },
+    { "company": "Apple", "weight": 7.03 },
+    { "company": "Microsoft", "weight": 5.13 },
+    { "company": "Amazon", "weight": 4.06 },
+    { "company": "Alphabet", "weight": 6.10 },
+    { "company": "Broadcom", "weight": 3.25 },
+    { "company": "Meta Platforms", "weight": 2.12 },
+    { "company": "Tesla", "weight": 1.88 },
+    { "company": "Micron Technology", "weight": 1.68 }
+  ]
+}

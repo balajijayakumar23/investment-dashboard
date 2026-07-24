@@ -88,10 +88,22 @@ Each ETF has one file at `data/etf-holdings/<TICKER>.json`:
 
 ### Seeded data
 
-`data/etf-holdings/CSPX.json` ships with ~15 representative top holdings of
-the S&P 500. **It's an illustrative snapshot, not live data** — update the
-weights from the issuer factsheet (ishares.com) before relying on it for
-real decisions.
+Four ETFs ship with seeded top-holdings snapshots (each file's `source`
+field says where the numbers came from and when — **these are point-in-time
+snapshots, not live data**; refresh from the issuer factsheet before
+relying on them for real decisions):
+
+| Ticker | Fund | ISIN |
+|---|---|---|
+| `CSPX` | iShares Core S&P 500 UCITS ETF | IE00B5BMR087 |
+| `VUAA` | Vanguard S&P 500 UCITS ETF (USD) Accumulating | IE00BFMXXD54 |
+| `LSMC` | Amundi MSCI Semiconductors UCITS ETF Acc | LU1900066033 |
+| `NIFTYBEES` | Nippon India ETF Nifty 50 BeES | — (NSE ticker) |
+
+Company names are normalized across all four files (e.g. always `Nvidia`,
+never `NVIDIA Corp.`), and multiple share classes of the same company (e.g.
+Alphabet A/C) are combined into one row, so exposure to the same company
+correctly merges across funds and direct stock holdings.
 
 ### Adding a new ETF
 
