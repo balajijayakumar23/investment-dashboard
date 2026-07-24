@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ETF Look-Through Dashboard</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap@1.7.0/dist/jsvectormap.min.css" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -61,6 +62,26 @@
     </div>
   </section>
 
+  <section class="card">
+    <h2>Country exposure</h2>
+    <div id="countryEmpty" class="empty" hidden>Add holdings to see your country-level exposure.</div>
+    <table id="countryTable" hidden>
+      <thead>
+        <tr><th>Country</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
+      </thead>
+      <tbody id="countryBody"></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Country map</h2>
+    <p class="hint">Hover a row above, or a country on the map, to see details. Darker = more exposure.</p>
+    <div id="mapEmpty" class="empty" hidden>Add holdings to see your exposure on the map.</div>
+    <div id="mapWrap" hidden>
+      <div id="worldMap"></div>
+    </div>
+  </section>
+
 </main>
 
 <footer>
@@ -68,6 +89,8 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.7.0/dist/jsvectormap.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.7.0/dist/maps/world.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>

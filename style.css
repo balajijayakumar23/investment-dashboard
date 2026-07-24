@@ -252,6 +252,37 @@ tbody tr:last-child td {
   margin: 0 auto;
 }
 
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: -4px 0 14px;
+}
+
+tr[data-country] {
+  cursor: pointer;
+}
+
+tr[data-country]:hover {
+  background: var(--bg);
+}
+
+#worldMap {
+  width: 100%;
+  height: 420px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.jvm-tooltip {
+  background: var(--card-bg) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  font-family: inherit !important;
+  font-size: 0.82rem !important;
+  padding: 8px 10px !important;
+  line-height: 1.4 !important;
+}
+
 footer {
   text-align: center;
   color: var(--muted);

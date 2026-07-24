@@ -67,6 +67,84 @@ const STOCK_NAME_MAP = {
   ITC: 'ITC Limited',
 };
 
+// Company display name -> ISO 3166-1 alpha-2 country code, used for the
+// country-level breakdown and world map. A company with no entry here
+// (e.g. a residual "other/unlisted holdings" bucket) is grouped under the
+// 'XX' (unclassified) bucket instead of guessed at.
+const COMPANY_COUNTRY = {
+  Apple: 'US',
+  Microsoft: 'US',
+  Nvidia: 'US',
+  Amazon: 'US',
+  Alphabet: 'US',
+  'Meta Platforms': 'US',
+  Broadcom: 'US',
+  'Berkshire Hathaway': 'US',
+  Tesla: 'US',
+  'JPMorgan Chase': 'US',
+  'Eli Lilly': 'US',
+  Visa: 'US',
+  'UnitedHealth Group': 'US',
+  ExxonMobil: 'US',
+  Netflix: 'US',
+  'Micron Technology': 'US',
+  AMD: 'US',
+  Intel: 'US',
+  'Lam Research': 'US',
+  'Applied Materials': 'US',
+  'Taiwan Semiconductor Manufacturing (TSMC)': 'TW',
+  MediaTek: 'TW',
+  'Delta Electronics': 'TW',
+  'Hon Hai Precision Industry': 'TW',
+  'SK Hynix': 'KR',
+  'Samsung Electronics': 'KR',
+  'Samsung Electro-Mechanics': 'KR',
+  'ASML Holding': 'NL',
+  'HDFC Bank': 'IN',
+  'ICICI Bank': 'IN',
+  'Reliance Industries': 'IN',
+  'Bharti Airtel': 'IN',
+  'Larsen & Toubro': 'IN',
+  'State Bank of India': 'IN',
+  'Axis Bank': 'IN',
+  Infosys: 'IN',
+  'Kotak Mahindra Bank': 'IN',
+  'ITC Limited': 'IN',
+  'Mahindra & Mahindra': 'IN',
+  'Bajaj Finance': 'IN',
+  'Tata Consultancy Services': 'IN',
+  'Sun Pharmaceutical Industries': 'IN',
+  Eternal: 'IN',
+  'HSBC Holdings': 'GB',
+  AstraZeneca: 'GB',
+  Shell: 'GB',
+  'Royal Bank of Canada': 'CA',
+  'Roche Holding': 'CH',
+  Novartis: 'CH',
+  'Nestlé': 'CH',
+  Siemens: 'DE',
+  'BHP Group': 'AU',
+  'Höegh Autoliners': 'NO',
+  'Novo Nordisk': 'DK',
+};
+
+// Country code -> display name shown in the country table and map tooltips.
+const COUNTRY_NAMES = {
+  US: 'United States',
+  TW: 'Taiwan',
+  KR: 'South Korea',
+  NL: 'Netherlands',
+  IN: 'India',
+  GB: 'United Kingdom',
+  CA: 'Canada',
+  CH: 'Switzerland',
+  DE: 'Germany',
+  AU: 'Australia',
+  NO: 'Norway',
+  DK: 'Denmark',
+  XX: 'Unclassified / other holdings',
+};
+
 function isKnownEtf(tickerUpper) {
   return ETF_REGISTRY.some((e) => e.ticker === tickerUpper);
 }
@@ -168,20 +246,24 @@ function padToFull(components, tickerUpper, tolerance = 0.5) {
   return components;
 }
 
-// Resolves one user holding into {company, weight}[] summing to ~100.
+// Resolves one user holding into {company, weight, country}[] summing to ~100.
 // This is the only function the rest of the app needs to know about when
-// a new data source (auto-fetch, paste-UI, etc.) is added later.
+// a new data source (auto-fetch, paste-UI, etc.) is added later. `country`
+// is looked up from COMPANY_COUNTRY by company name, so it's always derived
+// from the same single source of truth as the company-level data.
 async function resolveComponents(tickerUpper, type) {
+  const withCountry = (company, weight) => ({ company, weight, country: COMPANY_COUNTRY[company] || 'XX' });
+
   if (type === 'Stock') {
     const company = STOCK_NAME_MAP[tickerUpper] || tickerUpper;
-    return [{ company, weight: 100 }];
+    return [withCountry(company, 100)];
   }
 
   const raw = await fetchHoldingsFile(tickerUpper);
   if (!raw || raw.length === 0) {
-    return [{ company: `${tickerUpper} — no holdings data available`, weight: 100 }];
+    return [withCountry(`${tickerUpper} — no holdings data available`, 100)];
   }
-  return padToFull(raw, tickerUpper);
+  return padToFull(raw, tickerUpper).map((c) => withCountry(c.company, c.weight));
 }
 
 
@@ -189,8 +271,8 @@ async function resolveComponents(tickerUpper, type) {
 /* 4. ENGINE (pure)                                                     */
 /* -------------------------------------------------------------------- */
 
-// sources: [{ ticker, amountEUR, components: [{company, weight}] }]
-// returns: [{ company, exposureEUR, sources: Set<ticker> }] sorted desc.
+// sources: [{ ticker, amountEUR, components: [{company, weight, country}] }]
+// returns: [{ company, country, exposureEUR, sources: Set<ticker> }] sorted desc.
 function aggregateExposure(sources) {
   const byCompany = new Map();
 
@@ -198,7 +280,7 @@ function aggregateExposure(sources) {
     for (const comp of src.components) {
       const exposureEUR = src.amountEUR * (comp.weight / 100);
       if (!byCompany.has(comp.company)) {
-        byCompany.set(comp.company, { company: comp.company, exposureEUR: 0, sources: new Set() });
+        byCompany.set(comp.company, { company: comp.company, country: comp.country, exposureEUR: 0, sources: new Set() });
       }
       const entry = byCompany.get(comp.company);
       entry.exposureEUR += exposureEUR;
@@ -207,6 +289,29 @@ function aggregateExposure(sources) {
   }
 
   return Array.from(byCompany.values()).sort((a, b) => b.exposureEUR - a.exposureEUR);
+}
+
+// Same sources, aggregated by country instead of company. A component with
+// no known country (COMPANY_COUNTRY has no entry — e.g. a residual
+// "other/unlisted holdings" bucket) is grouped under 'XX' rather than guessed.
+// returns: [{ country, exposureEUR, sources: Set<ticker> }] sorted desc.
+function aggregateByCountry(sources) {
+  const byCountry = new Map();
+
+  for (const src of sources) {
+    for (const comp of src.components) {
+      const exposureEUR = src.amountEUR * (comp.weight / 100);
+      const code = comp.country || 'XX';
+      if (!byCountry.has(code)) {
+        byCountry.set(code, { country: code, exposureEUR: 0, sources: new Set() });
+      }
+      const entry = byCountry.get(code);
+      entry.exposureEUR += exposureEUR;
+      entry.sources.add(src.ticker);
+    }
+  }
+
+  return Array.from(byCountry.values()).sort((a, b) => b.exposureEUR - a.exposureEUR);
 }
 
 
@@ -314,6 +419,7 @@ function renderLookthrough(aggregated, totalInvested) {
 
   aggregated.forEach((row) => {
     const tr = document.createElement('tr');
+    if (row.country && row.country !== 'XX') tr.dataset.country = row.country;
 
     const companyTd = document.createElement('td');
     companyTd.textContent = row.company;
@@ -402,6 +508,145 @@ function renderChart(aggregated) {
   }
 }
 
+function renderCountryTable(countryAgg, totalInvested) {
+  const empty = document.getElementById('countryEmpty');
+  const table = document.getElementById('countryTable');
+  const body = document.getElementById('countryBody');
+  body.innerHTML = '';
+
+  if (countryAgg.length === 0) {
+    empty.hidden = false;
+    table.hidden = true;
+    return;
+  }
+  empty.hidden = true;
+  table.hidden = false;
+
+  countryAgg.forEach((row) => {
+    const tr = document.createElement('tr');
+    if (row.country !== 'XX') tr.dataset.country = row.country;
+
+    const countryTd = document.createElement('td');
+    countryTd.textContent = COUNTRY_NAMES[row.country] || row.country;
+
+    const exposureTd = document.createElement('td');
+    exposureTd.className = 'eur-value';
+    setMaskable(exposureTd, formatEUR(row.exposureEUR));
+
+    const pctTd = document.createElement('td');
+    const pct = totalInvested > 0 ? (row.exposureEUR / totalInvested) * 100 : 0;
+    pctTd.textContent = `${pctFormatter.format(pct)}%`;
+
+    const sourcesTd = document.createElement('td');
+    sourcesTd.className = 'sources-cell';
+    sourcesTd.textContent = Array.from(row.sources).join(', ');
+
+    tr.appendChild(countryTd);
+    tr.appendChild(exposureTd);
+    tr.appendChild(pctTd);
+    tr.appendChild(sourcesTd);
+    body.appendChild(tr);
+  });
+}
+
+// Validated sequential single-hue ramp (blue, light->dark) for continuous
+// magnitude encoding on the choropleth map. See dataviz skill palette.md.
+const SEQUENTIAL_STEPS = [
+  '#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7',
+  '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b',
+];
+const MAP_BASE_FILL = '#898781'; // muted ink - countries with no exposure
+const MAP_HIGHLIGHT_FILL = '#eda100'; // yellow (categorical slot 3) - hover highlight
+
+function sequentialColor(ratio) {
+  const idx = Math.round(Math.max(0, Math.min(1, ratio)) * (SEQUENTIAL_STEPS.length - 1));
+  return SEQUENTIAL_STEPS[idx];
+}
+
+let worldMapInstance = null;
+let countryColorByCode = {}; // code -> currently-painted (non-highlight) color, for restoring after hover
+let countryDataByCode = {}; // code -> { exposureEUR, pct, sources } for tooltips
+
+function renderWorldMap(countryAgg, totalInvested) {
+  const empty = document.getElementById('mapEmpty');
+  const wrap = document.getElementById('mapWrap');
+
+  const held = countryAgg.filter((c) => c.country !== 'XX');
+
+  if (held.length === 0) {
+    empty.hidden = false;
+    wrap.hidden = true;
+    return;
+  }
+  empty.hidden = true;
+  wrap.hidden = false;
+
+  const maxExposure = Math.max(...held.map((c) => c.exposureEUR));
+
+  countryDataByCode = {};
+  countryColorByCode = {};
+  held.forEach((c) => {
+    const pct = totalInvested > 0 ? (c.exposureEUR / totalInvested) * 100 : 0;
+    countryDataByCode[c.country] = { exposureEUR: c.exposureEUR, pct, sources: Array.from(c.sources).join(', ') };
+    countryColorByCode[c.country] = sequentialColor(maxExposure > 0 ? c.exposureEUR / maxExposure : 0);
+  });
+
+  if (typeof jsVectorMap === 'undefined') {
+    empty.hidden = false;
+    empty.textContent = 'Map library failed to load (check your connection) — country table above is still accurate.';
+    wrap.hidden = true;
+    return;
+  }
+
+  if (!worldMapInstance) {
+    worldMapInstance = new jsVectorMap({
+      selector: '#worldMap',
+      map: 'world',
+      zoomButtons: false,
+      regionStyle: {
+        initial: { fill: MAP_BASE_FILL, fillOpacity: 1, stroke: 'none' },
+        hover: { fillOpacity: 0.85, cursor: 'pointer' },
+      },
+      onRegionTooltipShow(event, tooltip, code) {
+        const d = countryDataByCode[code];
+        if (!d) {
+          tooltip.text(COUNTRY_NAMES[code] || code, true);
+          return;
+        }
+        const valueText = isBlurred ? '••••' : `${formatEUR(d.exposureEUR)} (${pctFormatter.format(d.pct)}%)`;
+        tooltip.text(
+          `<strong>${COUNTRY_NAMES[code] || code}</strong><br>${valueText}<br><span style="opacity:.75">${d.sources}</span>`,
+          true
+        );
+      },
+    });
+  }
+
+  paintMapColors();
+}
+
+function paintMapColors() {
+  if (!worldMapInstance || !worldMapInstance.regions) return;
+  Object.keys(worldMapInstance.regions).forEach((code) => {
+    const region = worldMapInstance.regions[code];
+    if (!region || !region.element) return;
+    const color = countryColorByCode[code] || MAP_BASE_FILL;
+    region.element.setStyle('fill', color);
+  });
+}
+
+function highlightCountry(code) {
+  if (!worldMapInstance || !worldMapInstance.regions || !code) return;
+  const region = worldMapInstance.regions[code];
+  if (region && region.element) region.element.setStyle('fill', MAP_HIGHLIGHT_FILL);
+}
+
+function unhighlightCountry(code) {
+  if (!worldMapInstance || !worldMapInstance.regions || !code) return;
+  const region = worldMapInstance.regions[code];
+  if (region && region.element) region.element.setStyle('fill', countryColorByCode[code] || MAP_BASE_FILL);
+}
+
 function applyBlurButtonState() {
   const btn = document.getElementById('blurToggle');
   btn.setAttribute('aria-pressed', String(isBlurred));
@@ -416,6 +661,7 @@ function applyBlurButtonState() {
 
 let lastHoldings = [];
 let lastAggregated = [];
+let lastCountryAgg = [];
 let lastTotalInvested = 0;
 
 function renderAll() {
@@ -424,6 +670,8 @@ function renderAll() {
   renderHoldingsTable(lastHoldings);
   renderLookthrough(lastAggregated, lastTotalInvested);
   renderChart(lastAggregated);
+  renderCountryTable(lastCountryAgg, lastTotalInvested);
+  renderWorldMap(lastCountryAgg, lastTotalInvested);
 }
 
 async function refreshAll() {
@@ -432,6 +680,7 @@ async function refreshAll() {
 
   if (lastHoldings.length === 0) {
     lastAggregated = [];
+    lastCountryAgg = [];
     renderAll();
     return;
   }
@@ -445,6 +694,7 @@ async function refreshAll() {
   );
 
   lastAggregated = aggregateExposure(sources);
+  lastCountryAgg = aggregateByCountry(sources);
   renderAll();
 }
 
@@ -576,6 +826,16 @@ function handleBlurToggle() {
   renderAll();
 }
 
+function handleRowHoverIn(e) {
+  const tr = e.target.closest('tr[data-country]');
+  if (tr) highlightCountry(tr.dataset.country);
+}
+
+function handleRowHoverOut(e) {
+  const tr = e.target.closest('tr[data-country]');
+  if (tr) unhighlightCountry(tr.dataset.country);
+}
+
 function init() {
   buildAutocompleteOptions();
   renderStatus();
@@ -583,6 +843,14 @@ function init() {
   document.getElementById('addForm').addEventListener('submit', handleAddSubmit);
   document.getElementById('holdingsBody').addEventListener('click', handleHoldingsClick);
   document.getElementById('blurToggle').addEventListener('click', handleBlurToggle);
+
+  // Hovering a company or country row highlights that country on the map.
+  // mouseover/mouseout (not mouseenter/mouseleave) so delegation works.
+  ['lookthroughBody', 'countryBody'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.addEventListener('mouseover', handleRowHoverIn);
+    el.addEventListener('mouseout', handleRowHoverOut);
+  });
 
   refreshAll();
 }

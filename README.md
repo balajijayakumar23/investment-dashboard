@@ -57,8 +57,22 @@ isn't part of the deployment.
   tickers contributed to that company's exposure (e.g. a company appearing
   in both an ETF and as a direct stock shows both).
 - **Blur toggle** (👁️ icon, top right): masks all EUR amounts as `••••`.
-  The allocation chart keeps its shape/labels but hides numeric values in
-  tooltips. State is remembered in `localStorage`.
+  The allocation chart and world map keep their shape/coloring but hide
+  numeric values in tooltips. State is remembered in `localStorage`.
+- **Country exposure**: each company is mapped to a headquarters country via
+  `COMPANY_COUNTRY` in `app.js`, so the same look-through amounts that build
+  the company table are re-aggregated by country too — covering both ETFs
+  and direct stocks together, the same way the company table does. A company
+  with no country mapping (including residual "other/unlisted holdings"
+  buckets) is grouped under "Unclassified / other holdings" rather than
+  guessed, so the total still reconciles with what you invested.
+- **Country map**: a choropleth world map below the allocation chart, colored
+  by relative exposure (darker = more). Hover a row in either the company
+  look-through table or the country table to highlight that country on the
+  map; hover a country on the map directly for a tooltip with its exposure,
+  % of portfolio, and contributing tickers. Built with
+  [jsVectorMap](https://github.com/themustafaomar/jsvectormap) (CDN, no
+  build step).
 
 ## Data model
 
@@ -132,18 +146,34 @@ The company name here should match the spelling used in ETF holdings files
 exactly, so a direct stock holding merges with the same company appearing
 inside your ETFs instead of showing as a separate row.
 
+### Adding/fixing a company's country
+
+Add or edit an entry in `COMPANY_COUNTRY` in `app.js`, keyed by the exact
+company name used elsewhere (ETF holdings files and `STOCK_NAME_MAP`), e.g.:
+
+```js
+Siemens: 'DE',
+```
+
+Values are ISO 3166-1 alpha-2 codes and must exist in the world map's region
+set — if you add a country not already in `COUNTRY_NAMES`, add a display
+name there too. A company with no entry here shows up under "Unclassified /
+other holdings" in the country table instead of on the map.
+
 ## Architecture notes
 
-The aggregation engine (`aggregateExposure` in `app.js`) only ever consumes
-a list of `{ ticker, amountEUR, components: [{ company, weight }] }`
+The aggregation engine (`aggregateExposure` / `aggregateByCountry` in
+`app.js`) only ever consumes a list of
+`{ ticker, amountEUR, components: [{ company, weight, country }] }`
 objects — it has no idea whether those components came from a seeded JSON
 file, a future live API, or a future "paste your holdings" UI. Ingestion
-(`resolveComponents`, which reads the JSON files today) is the only part
-that would need to change to support a new data source; rendering and
-aggregation stay untouched.
+(`resolveComponents`, which reads the JSON files and the `COMPANY_COUNTRY`
+lookup today) is the only part that would need to change to support a new
+data source; rendering and aggregation stay untouched.
 
 ## Out of scope (v1)
 
-Live prices, P&L, news, sector/country breakdown, encryption, multi-currency,
-auto-fetch, PWA/offline install. The ingestion/engine split above is meant
-to make most of these addable later without rewriting the core.
+Live prices, P&L, news, sector breakdown, encryption, multi-currency,
+auto-fetch, PWA/offline install, cross-device sync. The ingestion/engine
+split above is meant to make most of these addable later without rewriting
+the core.
