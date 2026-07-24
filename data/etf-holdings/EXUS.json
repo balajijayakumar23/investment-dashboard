@@ -1,0 +1,19 @@
+{
+  "ticker": "EXUS",
+  "name": "Xtrackers MSCI World ex USA UCITS ETF 1C",
+  "type": "ETF",
+  "asOf": "2026-05-29",
+  "source": "justETF (justetf.com/en/etf-profile.html?isin=IE0006WW1TQ4), top 10 holdings. ISIN IE0006WW1TQ4. SNAPSHOT — refresh from the issuer factsheet before relying on this.",
+  "holdings": [
+    { "company": "ASML Holding", "weight": 2.99 },
+    { "company": "HSBC Holdings", "weight": 1.32 },
+    { "company": "Royal Bank of Canada", "weight": 1.13 },
+    { "company": "Roche Holding", "weight": 1.13 },
+    { "company": "Novartis", "weight": 1.09 },
+    { "company": "AstraZeneca", "weight": 1.07 },
+    { "company": "Nestlé", "weight": 1.02 },
+    { "company": "Siemens", "weight": 0.95 },
+    { "company": "Shell", "weight": 0.90 },
+    { "company": "BHP Group", "weight": 0.89 }
+  ]
+}

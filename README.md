@@ -88,7 +88,7 @@ Each ETF has one file at `data/etf-holdings/<TICKER>.json`:
 
 ### Seeded data
 
-Four ETFs ship with seeded top-holdings snapshots (each file's `source`
+Six ETFs ship with seeded top-holdings snapshots (each file's `source`
 field says where the numbers came from and when — **these are point-in-time
 snapshots, not live data**; refresh from the issuer factsheet before
 relying on them for real decisions):
@@ -99,6 +99,8 @@ relying on them for real decisions):
 | `VUAA` | Vanguard S&P 500 UCITS ETF (USD) Accumulating | IE00BFMXXD54 |
 | `LSMC` | Amundi MSCI Semiconductors UCITS ETF Acc | LU1900066033 |
 | `NIFTYBEES` | Nippon India ETF Nifty 50 BeES | — (NSE ticker) |
+| `84X0` | iShares MSCI EM ex-China UCITS ETF USD (Acc) | IE00BMG6Z448 |
+| `EXUS` | Xtrackers MSCI World ex USA UCITS ETF 1C | IE0006WW1TQ4 |
 
 Company names are normalized across all four files (e.g. always `Nvidia`,
 never `NVIDIA Corp.`), and multiple share classes of the same company (e.g.

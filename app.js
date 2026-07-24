@@ -33,6 +33,8 @@ const ETF_REGISTRY = [
   { ticker: 'VUAA', name: 'Vanguard S&P 500 UCITS ETF (USD) Accumulating' },
   { ticker: 'LSMC', name: 'Amundi MSCI Semiconductors UCITS ETF Acc' },
   { ticker: 'NIFTYBEES', name: 'Nippon India ETF Nifty 50 BeES' },
+  { ticker: '84X0', name: 'iShares MSCI EM ex-China UCITS ETF USD (Acc)' },
+  { ticker: 'EXUS', name: 'Xtrackers MSCI World ex USA UCITS ETF 1C' },
 ];
 
 // Ticker -> display company name, used so a direct stock holding (e.g. AAPL)

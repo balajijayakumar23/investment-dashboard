@@ -1,0 +1,18 @@
+{
+  "ticker": "84X0",
+  "name": "iShares MSCI EM ex-China UCITS ETF USD (Acc)",
+  "type": "ETF",
+  "asOf": "2026-05-29",
+  "source": "justETF (justetf.com/en/etf-profile.html?isin=IE00BMG6Z448), top 10 holdings. Xetra ticker 84X0 / WKN A2QAFK / ISIN IE00BMG6Z448. Samsung Electronics' two listed share classes are combined into one company row. SNAPSHOT — refresh from the issuer factsheet before relying on this.",
+  "holdings": [
+    { "company": "Taiwan Semiconductor Manufacturing (TSMC)", "weight": 18.43 },
+    { "company": "Samsung Electronics", "weight": 10.87 },
+    { "company": "SK Hynix", "weight": 8.52 },
+    { "company": "MediaTek", "weight": 1.98 },
+    { "company": "Delta Electronics", "weight": 1.51 },
+    { "company": "Hon Hai Precision Industry", "weight": 1.13 },
+    { "company": "HDFC Bank", "weight": 0.87 },
+    { "company": "Reliance Industries", "weight": 0.84 },
+    { "company": "Samsung Electro-Mechanics", "weight": 0.79 }
+  ]
+}
