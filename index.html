@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ETF Look-Through Dashboard</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <h1>ETF Look-Through Dashboard</h1>
+  <div class="topbar-right">
+    <span id="totalInvested" class="eur-value">Total invested: €0.00</span>
+    <button id="blurToggle" class="icon-btn" type="button" aria-pressed="false" title="Hide amounts">👁️</button>
+  </div>
+</header>
+
+<main>
+
+  <section id="dataStatus" class="status" hidden></section>
+
+  <section class="card">
+    <h2>Add holding</h2>
+    <form id="addForm" autocomplete="off">
+      <input list="tickerOptions" id="tickerInput" name="ticker" placeholder="Ticker (e.g. CSPX or AAPL)" required />
+      <datalist id="tickerOptions"></datalist>
+      <input type="number" id="amountInput" name="amount" placeholder="Amount €" min="0" step="0.01" required />
+      <button type="submit">Add</button>
+    </form>
+    <p id="formError" class="error" hidden></p>
+  </section>
+
+  <section class="card">
+    <h2>Your holdings</h2>
+    <div id="holdingsEmpty" class="empty" hidden>No holdings yet — add your first ETF or stock above.</div>
+    <table id="holdingsTable" hidden>
+      <thead>
+        <tr><th>Ticker</th><th>Type</th><th>Amount (€)</th><th></th></tr>
+      </thead>
+      <tbody id="holdingsBody"></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Company look-through</h2>
+    <div id="lookthroughEmpty" class="empty" hidden>Add holdings to see your company-level exposure.</div>
+    <table id="lookthroughTable" hidden>
+      <thead>
+        <tr><th>Company</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
+      </thead>
+      <tbody id="lookthroughBody"></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Allocation</h2>
+    <div id="chartEmpty" class="empty" hidden>Add holdings to see the allocation chart.</div>
+    <div id="chartWrap" hidden>
+      <canvas id="allocationChart" width="480" height="480"></canvas>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>All data is stored locally in your browser (localStorage) only. Nothing you enter is written to this repo or sent anywhere.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>
