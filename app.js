@@ -399,6 +399,17 @@ let chartInstance = null;
 const eurFormatter = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pctFormatter = new Intl.NumberFormat('en-IE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
+// Reads a color token from style.css's :root so Chart.js/jsVectorMap (which
+// paint via JS-supplied color values, not CSS) stay in sync with the theme.
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function isDarkMode() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 function formatEUR(n) {
   return eurFormatter.format(n);
 }
@@ -518,11 +529,16 @@ function renderLookthrough(aggregated, totalInvested) {
   });
 }
 
+// Anchored at the teal accent hue (174deg) and rotated through the spectrum
+// for differentiation across many companies; calmer saturation/lightness
+// than a raw rainbow to match the "calm, restrained" palette.
 function palette(n) {
   const colors = [];
+  const baseHue = 174;
+  const light = isDarkMode() ? 62 : 50;
   for (let i = 0; i < n; i++) {
-    const hue = Math.round((360 / Math.max(n, 1)) * i);
-    colors.push(`hsl(${hue} 65% 55%)`);
+    const hue = Math.round((baseHue + (360 / Math.max(n, 1)) * i) % 360);
+    colors.push(`hsl(${hue} 55% ${light}%)`);
   }
   return colors;
 }
@@ -549,17 +565,25 @@ function renderChart(aggregated) {
   const total = data.reduce((s, v) => s + v, 0);
   const colors = palette(aggregated.length);
 
+  const textSecondary = cssVar('--text-secondary', '#4b5157');
+  const cardBg = cssVar('--card-bg', '#ffffff');
+
   const config = {
     type: 'pie',
     data: {
       labels,
-      datasets: [{ data, backgroundColor: colors, borderWidth: 1 }],
+      datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: cardBg }],
     },
     options: {
       responsive: true,
       plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, color: textSecondary } },
         tooltip: {
+          backgroundColor: cardBg,
+          titleColor: cssVar('--text', '#16181b'),
+          bodyColor: textSecondary,
+          borderColor: cssVar('--border', '#e5e7e6'),
+          borderWidth: 1,
           callbacks: {
             label: (ctx) => {
               if (isBlurred) return `${ctx.label}: ••••`;
@@ -633,14 +657,27 @@ function renderBreakdownTable(idPrefix, agg, totalInvested, keyField, options = 
   });
 }
 
-// Validated sequential single-hue ramp (blue, light->dark) for continuous
-// magnitude encoding on the choropleth map. See dataviz skill palette.md.
-const SEQUENTIAL_STEPS = [
-  '#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7',
-  '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b',
-];
-const MAP_BASE_FILL = '#898781'; // muted ink - countries with no exposure
-const MAP_HIGHLIGHT_FILL = '#eda100'; // yellow (categorical slot 3) - hover highlight
+// Sequential single-hue ramp (teal, matching --accent-bright) for continuous
+// magnitude encoding on the choropleth map: near-zero recedes toward the
+// surface, max exposure stands out darkest/most saturated (inverted on dark
+// surfaces, where "stands out" means brightest instead of darkest).
+function buildSequentialSteps() {
+  const dark = isDarkMode();
+  const hue = 174;
+  const sat = dark ? 55 : 60;
+  const lightStart = dark ? 22 : 88;
+  const lightEnd = dark ? 68 : 28;
+  const steps = 13;
+  const arr = [];
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1);
+    arr.push(`hsl(${hue} ${sat}% ${Math.round(lightStart + (lightEnd - lightStart) * t)}%)`);
+  }
+  return arr;
+}
+const SEQUENTIAL_STEPS = buildSequentialSteps();
+const MAP_BASE_FILL = cssVar('--border-strong', '#d7dad9'); // countries with no exposure
+const MAP_HIGHLIGHT_FILL = cssVar('--accent-bright', '#14b8a6'); // hover highlight
 
 function sequentialColor(ratio) {
   const idx = Math.round(Math.max(0, Math.min(1, ratio)) * (SEQUENTIAL_STEPS.length - 1));

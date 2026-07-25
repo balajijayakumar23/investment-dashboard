@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ETF Look-Through Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap@1.7.0/dist/jsvectormap.min.css" />
 <link rel="stylesheet" href="style.css" />
 </head>
@@ -21,7 +22,7 @@
 
   <section id="dataStatus" class="status" hidden></section>
 
-  <section class="card">
+  <section class="card add-bar">
     <h2>Add holding</h2>
     <form id="addForm" autocomplete="off">
       <input list="tickerOptions" id="tickerInput" name="ticker" placeholder="Ticker (e.g. CSPX or AAPL)" required />
@@ -32,88 +33,104 @@
     <p id="formError" class="error" hidden></p>
   </section>
 
-  <section class="card">
-    <h2>Your holdings</h2>
-    <div id="holdingsEmpty" class="empty" hidden>No holdings yet — add your first ETF or stock above.</div>
-    <table id="holdingsTable" hidden>
-      <thead>
-        <tr><th>Ticker</th><th>Type</th><th>Amount (€)</th><th></th></tr>
-      </thead>
-      <tbody id="holdingsBody"></tbody>
-    </table>
-  </section>
+  <div class="dashboard-grid">
 
-  <section class="card">
-    <h2>Company look-through</h2>
-    <div id="lookthroughEmpty" class="empty" hidden>Add holdings to see your company-level exposure.</div>
-    <table id="lookthroughTable" hidden>
-      <thead>
-        <tr><th>Company</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
-      </thead>
-      <tbody id="lookthroughBody"></tbody>
-    </table>
-  </section>
+    <section class="card tile tile-holdings">
+      <h2>Your holdings</h2>
+      <div id="holdingsEmpty" class="empty" hidden>No holdings yet — add your first ETF or stock above.</div>
+      <div class="table-scroll">
+        <table id="holdingsTable" hidden>
+          <thead>
+            <tr><th>Ticker</th><th>Type</th><th>Amount (€)</th><th></th></tr>
+          </thead>
+          <tbody id="holdingsBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-  <section class="card">
-    <h2>Allocation</h2>
-    <div id="chartEmpty" class="empty" hidden>Add holdings to see the allocation chart.</div>
-    <div id="chartWrap" hidden>
-      <canvas id="allocationChart" width="480" height="480"></canvas>
-    </div>
-  </section>
+    <section class="card tile tile-primary">
+      <h2>Company look-through</h2>
+      <div id="lookthroughEmpty" class="empty" hidden>Add holdings to see your company-level exposure.</div>
+      <div class="table-scroll">
+        <table id="lookthroughTable" hidden>
+          <thead>
+            <tr><th>Company</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
+          </thead>
+          <tbody id="lookthroughBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-  <section class="card">
-    <h2>Country exposure — ETFs</h2>
-    <div id="countryEtfEmpty" class="empty" hidden>Add an ETF holding to see its country-level exposure.</div>
-    <table id="countryEtfTable" hidden>
-      <thead>
-        <tr><th>Country</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
-      </thead>
-      <tbody id="countryEtfBody"></tbody>
-    </table>
-  </section>
+    <section class="card tile tile-chart">
+      <h2>Allocation</h2>
+      <div id="chartEmpty" class="empty" hidden>Add holdings to see the allocation chart.</div>
+      <div id="chartWrap" hidden>
+        <canvas id="allocationChart" width="480" height="480"></canvas>
+      </div>
+    </section>
 
-  <section class="card">
-    <h2>Country exposure — Stocks</h2>
-    <div id="countryStockEmpty" class="empty" hidden>Add a direct stock holding to see its country-level exposure.</div>
-    <table id="countryStockTable" hidden>
-      <thead>
-        <tr><th>Country</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
-      </thead>
-      <tbody id="countryStockBody"></tbody>
-    </table>
-  </section>
+    <section class="card tile tile-map">
+      <h2>Country map</h2>
+      <p class="hint">Hover a row below, or a country on the map, to see details. Darker = more exposure.</p>
+      <div id="mapEmpty" class="empty" hidden>Add holdings to see your exposure on the map.</div>
+      <div id="mapWrap" hidden>
+        <div id="worldMap"></div>
+      </div>
+    </section>
 
-  <section class="card">
-    <h2>Country map</h2>
-    <p class="hint">Hover a row above, or a country on the map, to see details. Darker = more exposure.</p>
-    <div id="mapEmpty" class="empty" hidden>Add holdings to see your exposure on the map.</div>
-    <div id="mapWrap" hidden>
-      <div id="worldMap"></div>
-    </div>
-  </section>
+    <section class="card tile tile-breakdown tile-country-etf">
+      <h2>Country exposure — ETFs</h2>
+      <div id="countryEtfEmpty" class="empty" hidden>Add an ETF holding to see its country-level exposure.</div>
+      <div class="table-scroll">
+        <table id="countryEtfTable" hidden>
+          <thead>
+            <tr><th>Country</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
+          </thead>
+          <tbody id="countryEtfBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-  <section class="card">
-    <h2>Industry exposure — ETFs</h2>
-    <div id="industryEtfEmpty" class="empty" hidden>Add an ETF holding to see its industry-level exposure.</div>
-    <table id="industryEtfTable" hidden>
-      <thead>
-        <tr><th>Industry</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
-      </thead>
-      <tbody id="industryEtfBody"></tbody>
-    </table>
-  </section>
+    <section class="card tile tile-breakdown tile-country-stock">
+      <h2>Country exposure — Stocks</h2>
+      <div id="countryStockEmpty" class="empty" hidden>Add a direct stock holding to see its country-level exposure.</div>
+      <div class="table-scroll">
+        <table id="countryStockTable" hidden>
+          <thead>
+            <tr><th>Country</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
+          </thead>
+          <tbody id="countryStockBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-  <section class="card">
-    <h2>Industry exposure — Stocks</h2>
-    <div id="industryStockEmpty" class="empty" hidden>Add a direct stock holding to see its industry-level exposure.</div>
-    <table id="industryStockTable" hidden>
-      <thead>
-        <tr><th>Industry</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
-      </thead>
-      <tbody id="industryStockBody"></tbody>
-    </table>
-  </section>
+    <section class="card tile tile-breakdown tile-industry-etf">
+      <h2>Industry exposure — ETFs</h2>
+      <div id="industryEtfEmpty" class="empty" hidden>Add an ETF holding to see its industry-level exposure.</div>
+      <div class="table-scroll">
+        <table id="industryEtfTable" hidden>
+          <thead>
+            <tr><th>Industry</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
+          </thead>
+          <tbody id="industryEtfBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card tile tile-breakdown tile-industry-stock">
+      <h2>Industry exposure — Stocks</h2>
+      <div id="industryStockEmpty" class="empty" hidden>Add a direct stock holding to see its industry-level exposure.</div>
+      <div class="table-scroll">
+        <table id="industryStockTable" hidden>
+          <thead>
+            <tr><th>Industry</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
+          </thead>
+          <tbody id="industryStockBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
 
 </main>
 
