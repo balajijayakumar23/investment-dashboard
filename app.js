@@ -69,7 +69,7 @@ const STOCK_NAME_MAP = {
 
 // Company display name -> ISO 3166-1 alpha-2 country code, used for the
 // country-level breakdown and world map. A company with no entry here
-// (e.g. a residual "other/unlisted holdings" bucket) is grouped under the
+// (e.g. a residual "remaining holdings (not itemized)" bucket) is grouped under the
 // 'XX' (unclassified) bucket instead of guessed at.
 const COMPANY_COUNTRY = {
   Apple: 'US',
@@ -143,6 +143,66 @@ const COUNTRY_NAMES = {
   NO: 'Norway',
   DK: 'Denmark',
   XX: 'Unclassified / other holdings',
+};
+
+// Company display name -> sector (GICS-style, simplified). Same key set and
+// same "unmapped stays unmapped" rule as COMPANY_COUNTRY — a company with no
+// entry here is grouped under 'Unclassified' rather than guessed.
+const COMPANY_INDUSTRY = {
+  Apple: 'Technology',
+  Microsoft: 'Technology',
+  Nvidia: 'Technology',
+  Amazon: 'Consumer Discretionary',
+  Alphabet: 'Communication Services',
+  'Meta Platforms': 'Communication Services',
+  Broadcom: 'Technology',
+  'Berkshire Hathaway': 'Financials',
+  Tesla: 'Consumer Discretionary',
+  'JPMorgan Chase': 'Financials',
+  'Eli Lilly': 'Health Care',
+  Visa: 'Financials',
+  'UnitedHealth Group': 'Health Care',
+  ExxonMobil: 'Energy',
+  Netflix: 'Communication Services',
+  'Micron Technology': 'Technology',
+  AMD: 'Technology',
+  Intel: 'Technology',
+  'Lam Research': 'Technology',
+  'Applied Materials': 'Technology',
+  'Taiwan Semiconductor Manufacturing (TSMC)': 'Technology',
+  MediaTek: 'Technology',
+  'Delta Electronics': 'Technology',
+  'Hon Hai Precision Industry': 'Technology',
+  'SK Hynix': 'Technology',
+  'Samsung Electronics': 'Technology',
+  'Samsung Electro-Mechanics': 'Technology',
+  'ASML Holding': 'Technology',
+  'HDFC Bank': 'Financials',
+  'ICICI Bank': 'Financials',
+  'Reliance Industries': 'Energy',
+  'Bharti Airtel': 'Communication Services',
+  'Larsen & Toubro': 'Industrials',
+  'State Bank of India': 'Financials',
+  'Axis Bank': 'Financials',
+  Infosys: 'Technology',
+  'Kotak Mahindra Bank': 'Financials',
+  'ITC Limited': 'Consumer Staples',
+  'Mahindra & Mahindra': 'Consumer Discretionary',
+  'Bajaj Finance': 'Financials',
+  'Tata Consultancy Services': 'Technology',
+  'Sun Pharmaceutical Industries': 'Health Care',
+  Eternal: 'Consumer Discretionary',
+  'HSBC Holdings': 'Financials',
+  AstraZeneca: 'Health Care',
+  Shell: 'Energy',
+  'Royal Bank of Canada': 'Financials',
+  'Roche Holding': 'Health Care',
+  Novartis: 'Health Care',
+  'Nestlé': 'Consumer Staples',
+  Siemens: 'Industrials',
+  'BHP Group': 'Materials',
+  'Höegh Autoliners': 'Industrials',
+  'Novo Nordisk': 'Health Care',
 };
 
 function isKnownEtf(tickerUpper) {
@@ -241,29 +301,35 @@ function padToFull(components, tickerUpper, tolerance = 0.5) {
   const sum = components.reduce((s, c) => s + c.weight, 0);
   const remainder = 100 - sum;
   if (remainder > tolerance) {
-    return [...components, { company: `${tickerUpper} — other/unlisted holdings`, weight: remainder }];
+    return [...components, { company: `${tickerUpper} — remaining holdings (not itemized)`, weight: remainder }];
   }
   return components;
 }
 
-// Resolves one user holding into {company, weight, country}[] summing to ~100.
-// This is the only function the rest of the app needs to know about when
-// a new data source (auto-fetch, paste-UI, etc.) is added later. `country`
-// is looked up from COMPANY_COUNTRY by company name, so it's always derived
-// from the same single source of truth as the company-level data.
+// Resolves one user holding into {company, weight, country, industry}[]
+// summing to ~100. This is the only function the rest of the app needs to
+// know about when a new data source (auto-fetch, paste-UI, etc.) is added
+// later. `country`/`industry` are looked up by company name, so they're
+// always derived from the same single source of truth as the company-level
+// data rather than duplicated per ETF file.
 async function resolveComponents(tickerUpper, type) {
-  const withCountry = (company, weight) => ({ company, weight, country: COMPANY_COUNTRY[company] || 'XX' });
+  const withMeta = (company, weight) => ({
+    company,
+    weight,
+    country: COMPANY_COUNTRY[company] || 'XX',
+    industry: COMPANY_INDUSTRY[company] || 'Unclassified',
+  });
 
   if (type === 'Stock') {
     const company = STOCK_NAME_MAP[tickerUpper] || tickerUpper;
-    return [withCountry(company, 100)];
+    return [withMeta(company, 100)];
   }
 
   const raw = await fetchHoldingsFile(tickerUpper);
   if (!raw || raw.length === 0) {
-    return [withCountry(`${tickerUpper} — no holdings data available`, 100)];
+    return [withMeta(`${tickerUpper} — no holdings data available`, 100)];
   }
-  return padToFull(raw, tickerUpper).map((c) => withCountry(c.company, c.weight));
+  return padToFull(raw, tickerUpper).map((c) => withMeta(c.company, c.weight));
 }
 
 
@@ -291,27 +357,35 @@ function aggregateExposure(sources) {
   return Array.from(byCompany.values()).sort((a, b) => b.exposureEUR - a.exposureEUR);
 }
 
-// Same sources, aggregated by country instead of company. A component with
-// no known country (COMPANY_COUNTRY has no entry — e.g. a residual
-// "other/unlisted holdings" bucket) is grouped under 'XX' rather than guessed.
-// returns: [{ country, exposureEUR, sources: Set<ticker> }] sorted desc.
-function aggregateByCountry(sources) {
-  const byCountry = new Map();
+// Same sources, aggregated by an arbitrary per-component string field
+// (e.g. 'country', 'industry') instead of company. A component missing that
+// field is grouped under unclassifiedValue rather than guessed.
+// returns: [{ [field]: key, exposureEUR, sources: Set<ticker> }] sorted desc.
+function aggregateByField(sources, field, unclassifiedValue) {
+  const byKey = new Map();
 
   for (const src of sources) {
     for (const comp of src.components) {
       const exposureEUR = src.amountEUR * (comp.weight / 100);
-      const code = comp.country || 'XX';
-      if (!byCountry.has(code)) {
-        byCountry.set(code, { country: code, exposureEUR: 0, sources: new Set() });
+      const key = comp[field] || unclassifiedValue;
+      if (!byKey.has(key)) {
+        byKey.set(key, { [field]: key, exposureEUR: 0, sources: new Set() });
       }
-      const entry = byCountry.get(code);
+      const entry = byKey.get(key);
       entry.exposureEUR += exposureEUR;
       entry.sources.add(src.ticker);
     }
   }
 
-  return Array.from(byCountry.values()).sort((a, b) => b.exposureEUR - a.exposureEUR);
+  return Array.from(byKey.values()).sort((a, b) => b.exposureEUR - a.exposureEUR);
+}
+
+function aggregateByCountry(sources) {
+  return aggregateByField(sources, 'country', 'XX');
+}
+
+function aggregateByIndustry(sources) {
+  return aggregateByField(sources, 'industry', 'Unclassified');
 }
 
 
@@ -508,15 +582,22 @@ function renderChart(aggregated) {
   }
 }
 
-// idPrefix selects which table to render into: 'countryEtf', 'countryStock',
-// or 'country' (the combined ETF+stock table).
-function renderCountryTable(idPrefix, countryAgg, totalInvested) {
+// Renders a breakdown table (country or industry, ETF/Stock/combined variant)
+// from an aggregateByField() result. idPrefix picks the DOM ids, e.g.
+// 'countryEtf' -> #countryEtfEmpty/#countryEtfTable/#countryEtfBody.
+// keyField is which property of each row holds the group key ('country' or
+// 'industry'). options.displayNames optionally maps key -> display text
+// (used for country codes; industry names are already display-ready).
+// options.hoverAttr + options.unclassified opt a table into the
+// hover-highlights-the-map behavior (country tables only).
+function renderBreakdownTable(idPrefix, agg, totalInvested, keyField, options = {}) {
+  const { displayNames, hoverAttr, unclassified } = options;
   const empty = document.getElementById(`${idPrefix}Empty`);
   const table = document.getElementById(`${idPrefix}Table`);
   const body = document.getElementById(`${idPrefix}Body`);
   body.innerHTML = '';
 
-  if (countryAgg.length === 0) {
+  if (agg.length === 0) {
     empty.hidden = false;
     table.hidden = true;
     return;
@@ -524,12 +605,13 @@ function renderCountryTable(idPrefix, countryAgg, totalInvested) {
   empty.hidden = true;
   table.hidden = false;
 
-  countryAgg.forEach((row) => {
+  agg.forEach((row) => {
+    const key = row[keyField];
     const tr = document.createElement('tr');
-    if (row.country !== 'XX') tr.dataset.country = row.country;
+    if (hoverAttr && key !== unclassified) tr.dataset[hoverAttr] = key;
 
-    const countryTd = document.createElement('td');
-    countryTd.textContent = COUNTRY_NAMES[row.country] || row.country;
+    const labelTd = document.createElement('td');
+    labelTd.textContent = displayNames ? (displayNames[key] || key) : key;
 
     const exposureTd = document.createElement('td');
     exposureTd.className = 'eur-value';
@@ -543,7 +625,7 @@ function renderCountryTable(idPrefix, countryAgg, totalInvested) {
     sourcesTd.className = 'sources-cell';
     sourcesTd.textContent = Array.from(row.sources).join(', ');
 
-    tr.appendChild(countryTd);
+    tr.appendChild(labelTd);
     tr.appendChild(exposureTd);
     tr.appendChild(pctTd);
     tr.appendChild(sourcesTd);
@@ -663,9 +745,11 @@ function applyBlurButtonState() {
 
 let lastHoldings = [];
 let lastAggregated = [];
-let lastCountryAgg = [];       // combined ETF + stock, drives the map
-let lastCountryAggEtf = [];    // ETF holdings only
-let lastCountryAggStock = [];  // stock holdings only
+let lastCountryAgg = [];        // combined ETF + stock, drives the map
+let lastCountryAggEtf = [];     // ETF holdings only
+let lastCountryAggStock = [];   // stock holdings only
+let lastIndustryAggEtf = [];    // ETF holdings only
+let lastIndustryAggStock = [];  // stock holdings only
 let lastTotalInvested = 0;
 
 function renderAll() {
@@ -674,9 +758,15 @@ function renderAll() {
   renderHoldingsTable(lastHoldings);
   renderLookthrough(lastAggregated, lastTotalInvested);
   renderChart(lastAggregated);
-  renderCountryTable('countryEtf', lastCountryAggEtf, lastTotalInvested);
-  renderCountryTable('countryStock', lastCountryAggStock, lastTotalInvested);
+  renderBreakdownTable('countryEtf', lastCountryAggEtf, lastTotalInvested, 'country', {
+    displayNames: COUNTRY_NAMES, hoverAttr: 'country', unclassified: 'XX',
+  });
+  renderBreakdownTable('countryStock', lastCountryAggStock, lastTotalInvested, 'country', {
+    displayNames: COUNTRY_NAMES, hoverAttr: 'country', unclassified: 'XX',
+  });
   renderWorldMap(lastCountryAgg, lastTotalInvested);
+  renderBreakdownTable('industryEtf', lastIndustryAggEtf, lastTotalInvested, 'industry', { unclassified: 'Unclassified' });
+  renderBreakdownTable('industryStock', lastIndustryAggStock, lastTotalInvested, 'industry', { unclassified: 'Unclassified' });
 }
 
 async function refreshAll() {
@@ -688,6 +778,8 @@ async function refreshAll() {
     lastCountryAgg = [];
     lastCountryAggEtf = [];
     lastCountryAggStock = [];
+    lastIndustryAggEtf = [];
+    lastIndustryAggStock = [];
     renderAll();
     return;
   }
@@ -701,10 +793,15 @@ async function refreshAll() {
     }))
   );
 
+  const etfSources = sources.filter((s) => s.type === 'ETF');
+  const stockSources = sources.filter((s) => s.type === 'Stock');
+
   lastAggregated = aggregateExposure(sources);
   lastCountryAgg = aggregateByCountry(sources);
-  lastCountryAggEtf = aggregateByCountry(sources.filter((s) => s.type === 'ETF'));
-  lastCountryAggStock = aggregateByCountry(sources.filter((s) => s.type === 'Stock'));
+  lastCountryAggEtf = aggregateByCountry(etfSources);
+  lastCountryAggStock = aggregateByCountry(stockSources);
+  lastIndustryAggEtf = aggregateByIndustry(etfSources);
+  lastIndustryAggStock = aggregateByIndustry(stockSources);
   renderAll();
 }
 

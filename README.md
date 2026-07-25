@@ -65,7 +65,7 @@ isn't part of the deployment.
   and **Country exposure — Stocks** (direct stock holdings only) — each with
   its own "% of portfolio" against your whole invested total, so the two are
   directly comparable. A company with no country mapping (including residual
-  "other/unlisted holdings" buckets) is grouped under "Unclassified / other
+  "remaining holdings (not itemized)" buckets) is grouped under "Unclassified / other
   holdings" rather than guessed, so each table's total still reconciles with
   what it represents.
 - **Country map**: a choropleth world map below the two country tables,
@@ -76,6 +76,11 @@ isn't part of the deployment.
   tickers. Built with
   [jsVectorMap](https://github.com/themustafaomar/jsvectormap) (CDN, no
   build step).
+- **Industry exposure**: same idea as country exposure, but by sector via
+  `COMPANY_INDUSTRY` in `app.js` — **Industry exposure — ETFs** and
+  **Industry exposure — Stocks**, both % of your whole portfolio. No map for
+  this one, just the two tables. A company with no sector mapping is grouped
+  under "Unclassified".
 
 ## Data model
 
@@ -97,7 +102,7 @@ Each ETF has one file at `data/etf-holdings/<TICKER>.json`:
 - `weight` is a percentage of the fund (0–100).
 - Weights don't need to sum to exactly 100 — if they add up to less (e.g.
   you only listed the top 15 holdings), the app fills the remainder with a
-  clearly-labelled `<TICKER> — other/unlisted holdings` bucket so your total
+  clearly-labelled `<TICKER> — remaining holdings (not itemized)` bucket so your total
   exposure always matches what you invested.
 - A ticker with no JSON file (any stock, or an ETF you haven't seeded yet)
   is treated as 100% weight to itself for stocks, or shows as
@@ -163,20 +168,33 @@ set — if you add a country not already in `COUNTRY_NAMES`, add a display
 name there too. A company with no entry here shows up under "Unclassified /
 other holdings" in the country table instead of on the map.
 
+### Adding/fixing a company's industry
+
+Same idea, in `COMPANY_INDUSTRY` in `app.js`:
+
+```js
+Siemens: 'Industrials',
+```
+
+Values are free-text sector names (no fixed list) — pick one that matches
+your other entries so exposure to the same sector groups together. A company
+with no entry here shows up under "Unclassified" in the industry table.
+
 ## Architecture notes
 
-The aggregation engine (`aggregateExposure` / `aggregateByCountry` in
+The aggregation engine (`aggregateExposure` / `aggregateByField` — with
+`aggregateByCountry` and `aggregateByIndustry` as thin wrappers — in
 `app.js`) only ever consumes a list of
-`{ ticker, amountEUR, components: [{ company, weight, country }] }`
+`{ ticker, amountEUR, components: [{ company, weight, country, industry }] }`
 objects — it has no idea whether those components came from a seeded JSON
 file, a future live API, or a future "paste your holdings" UI. Ingestion
-(`resolveComponents`, which reads the JSON files and the `COMPANY_COUNTRY`
-lookup today) is the only part that would need to change to support a new
-data source; rendering and aggregation stay untouched.
+(`resolveComponents`, which reads the JSON files and the `COMPANY_COUNTRY`/
+`COMPANY_INDUSTRY` lookups today) is the only part that would need to change
+to support a new data source; rendering and aggregation stay untouched.
 
 ## Out of scope (v1)
 
-Live prices, P&L, news, sector breakdown, encryption, multi-currency,
+Live prices, P&L, news, encryption, multi-currency,
 auto-fetch, PWA/offline install, cross-device sync. The ingestion/engine
 split above is meant to make most of these addable later without rewriting
 the core.
