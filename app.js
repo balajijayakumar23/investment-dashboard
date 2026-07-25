@@ -508,10 +508,12 @@ function renderChart(aggregated) {
   }
 }
 
-function renderCountryTable(countryAgg, totalInvested) {
-  const empty = document.getElementById('countryEmpty');
-  const table = document.getElementById('countryTable');
-  const body = document.getElementById('countryBody');
+// idPrefix selects which table to render into: 'countryEtf', 'countryStock',
+// or 'country' (the combined ETF+stock table).
+function renderCountryTable(idPrefix, countryAgg, totalInvested) {
+  const empty = document.getElementById(`${idPrefix}Empty`);
+  const table = document.getElementById(`${idPrefix}Table`);
+  const body = document.getElementById(`${idPrefix}Body`);
   body.innerHTML = '';
 
   if (countryAgg.length === 0) {
@@ -661,7 +663,9 @@ function applyBlurButtonState() {
 
 let lastHoldings = [];
 let lastAggregated = [];
-let lastCountryAgg = [];
+let lastCountryAgg = [];       // combined ETF + stock, drives the map
+let lastCountryAggEtf = [];    // ETF holdings only
+let lastCountryAggStock = [];  // stock holdings only
 let lastTotalInvested = 0;
 
 function renderAll() {
@@ -670,7 +674,8 @@ function renderAll() {
   renderHoldingsTable(lastHoldings);
   renderLookthrough(lastAggregated, lastTotalInvested);
   renderChart(lastAggregated);
-  renderCountryTable(lastCountryAgg, lastTotalInvested);
+  renderCountryTable('countryEtf', lastCountryAggEtf, lastTotalInvested);
+  renderCountryTable('countryStock', lastCountryAggStock, lastTotalInvested);
   renderWorldMap(lastCountryAgg, lastTotalInvested);
 }
 
@@ -681,6 +686,8 @@ async function refreshAll() {
   if (lastHoldings.length === 0) {
     lastAggregated = [];
     lastCountryAgg = [];
+    lastCountryAggEtf = [];
+    lastCountryAggStock = [];
     renderAll();
     return;
   }
@@ -688,6 +695,7 @@ async function refreshAll() {
   const sources = await Promise.all(
     lastHoldings.map(async (h) => ({
       ticker: h.ticker,
+      type: h.type,
       amountEUR: h.amountEUR,
       components: await resolveComponents(h.ticker, h.type),
     }))
@@ -695,6 +703,8 @@ async function refreshAll() {
 
   lastAggregated = aggregateExposure(sources);
   lastCountryAgg = aggregateByCountry(sources);
+  lastCountryAggEtf = aggregateByCountry(sources.filter((s) => s.type === 'ETF'));
+  lastCountryAggStock = aggregateByCountry(sources.filter((s) => s.type === 'Stock'));
   renderAll();
 }
 
@@ -846,7 +856,7 @@ function init() {
 
   // Hovering a company or country row highlights that country on the map.
   // mouseover/mouseout (not mouseenter/mouseleave) so delegation works.
-  ['lookthroughBody', 'countryBody'].forEach((id) => {
+  ['lookthroughBody', 'countryEtfBody', 'countryStockBody'].forEach((id) => {
     const el = document.getElementById(id);
     el.addEventListener('mouseover', handleRowHoverIn);
     el.addEventListener('mouseout', handleRowHoverOut);

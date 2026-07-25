@@ -60,17 +60,20 @@ isn't part of the deployment.
   The allocation chart and world map keep their shape/coloring but hide
   numeric values in tooltips. State is remembered in `localStorage`.
 - **Country exposure**: each company is mapped to a headquarters country via
-  `COMPANY_COUNTRY` in `app.js`, so the same look-through amounts that build
-  the company table are re-aggregated by country too — covering both ETFs
-  and direct stocks together, the same way the company table does. A company
-  with no country mapping (including residual "other/unlisted holdings"
-  buckets) is grouped under "Unclassified / other holdings" rather than
-  guessed, so the total still reconciles with what you invested.
-- **Country map**: a choropleth world map below the allocation chart, colored
-  by relative exposure (darker = more). Hover a row in either the company
-  look-through table or the country table to highlight that country on the
-  map; hover a country on the map directly for a tooltip with its exposure,
-  % of portfolio, and contributing tickers. Built with
+  `COMPANY_COUNTRY` in `app.js`. Shown as two separate tables — **Country
+  exposure — ETFs** (look-through country exposure from ETF holdings only)
+  and **Country exposure — Stocks** (direct stock holdings only) — each with
+  its own "% of portfolio" against your whole invested total, so the two are
+  directly comparable. A company with no country mapping (including residual
+  "other/unlisted holdings" buckets) is grouped under "Unclassified / other
+  holdings" rather than guessed, so each table's total still reconciles with
+  what it represents.
+- **Country map**: a choropleth world map below the two country tables,
+  colored by *combined* (ETF + stock) exposure per country (darker = more).
+  Hover a row in the company look-through table or either country table to
+  highlight that country on the map; hover a country on the map directly for
+  a tooltip with its combined exposure, % of portfolio, and contributing
+  tickers. Built with
   [jsVectorMap](https://github.com/themustafaomar/jsvectormap) (CDN, no
   build step).
 
