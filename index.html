@@ -33,6 +33,15 @@
     <p id="formError" class="error" hidden></p>
   </section>
 
+  <section class="card source-bar">
+    <div id="sourceToggle" class="segmented" role="group" aria-label="Filter by source type">
+      <button type="button" class="segmented-btn" data-filter="Combined">Combined</button>
+      <button type="button" class="segmented-btn" data-filter="ETF">ETF</button>
+      <button type="button" class="segmented-btn" data-filter="Direct">Direct</button>
+    </div>
+    <p id="sourceHeadline" class="source-headline"></p>
+  </section>
+
   <div id="summaryEmpty" class="empty" hidden>Add holdings to see your portfolio summary.</div>
   <div id="summaryRow" class="summary-row" hidden>
     <div class="summary-card">
@@ -61,7 +70,7 @@
       <div class="table-scroll">
         <table id="holdingsTable" hidden>
           <thead>
-            <tr><th>Ticker</th><th>Type</th><th>Amount (€)</th><th></th></tr>
+            <tr><th>Ticker</th><th>Type</th><th>Amount (€)</th><th>Updated</th><th></th></tr>
           </thead>
           <tbody id="holdingsBody"></tbody>
         </table>
@@ -70,6 +79,7 @@
 
     <section class="card tile tile-primary">
       <h2>Company look-through</h2>
+      <p class="hint">Reflects the Combined / ETF / Direct filter above.</p>
       <div id="lookthroughEmpty" class="empty" hidden>Add holdings to see your company-level exposure.</div>
       <div class="table-scroll">
         <table id="lookthroughTable" hidden>
@@ -83,6 +93,7 @@
 
     <section class="card tile tile-chart">
       <h2>Allocation</h2>
+      <p class="hint">Reflects the filter above.</p>
       <div id="chartEmpty" class="empty" hidden>Add holdings to see the allocation chart.</div>
       <div id="chartWrap" hidden>
         <canvas id="allocationChart" width="480" height="480"></canvas>
@@ -91,10 +102,43 @@
 
     <section class="card tile tile-map">
       <h2>Country map</h2>
-      <p class="hint">Hover a row below, or a country on the map, to see details. Darker = more exposure.</p>
+      <p class="hint">Hover a row, or a country on the map, for details. Darker = more exposure. Reflects the filter above; use the map's own +/− to zoom.</p>
       <div id="mapEmpty" class="empty" hidden>Add holdings to see your exposure on the map.</div>
       <div id="mapWrap" hidden>
         <div id="worldMap"></div>
+        <button type="button" id="mapResetBtn" class="link-btn map-reset-btn">Reset view</button>
+      </div>
+    </section>
+
+    <section class="card tile tile-breakdown tile-overall-country">
+      <h2>Overall country split</h2>
+      <p class="hint">Direct + ETF combined, always — independent of the filter above.</p>
+      <div id="overallCountryEmpty" class="empty" hidden>Add holdings to see your overall country split.</div>
+      <div class="table-scroll">
+        <table id="overallCountryTable" hidden>
+          <thead>
+            <tr><th>Country</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
+          </thead>
+          <tbody id="overallCountryBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card tile tile-divergence">
+      <h2>Direct vs ETF divergence</h2>
+      <div id="divergenceEmpty" class="empty" hidden></div>
+      <div id="divergenceContent" hidden>
+        <p class="subheading">Companies</p>
+        <div id="divergenceCompaniesEmpty" class="empty" hidden>No meaningful gap.</div>
+        <div id="divergenceCompaniesList" class="divergence-list" hidden></div>
+
+        <p class="subheading">Sectors</p>
+        <div id="divergenceSectorsEmpty" class="empty" hidden>No meaningful gap.</div>
+        <div id="divergenceSectorsList" class="divergence-list" hidden></div>
+
+        <p class="subheading">Countries</p>
+        <div id="divergenceCountriesEmpty" class="empty" hidden>No meaningful gap.</div>
+        <div id="divergenceCountriesList" class="divergence-list" hidden></div>
       </div>
     </section>
 
@@ -126,6 +170,7 @@
 
     <section class="card tile tile-breakdown tile-industry-etf">
       <h2>Industry exposure — ETFs</h2>
+      <p class="hint">Click a row to see which holdings contribute.</p>
       <div id="industryEtfEmpty" class="empty" hidden>Add an ETF holding to see its industry-level exposure.</div>
       <div class="table-scroll">
         <table id="industryEtfTable" hidden>
@@ -139,6 +184,7 @@
 
     <section class="card tile tile-breakdown tile-industry-stock">
       <h2>Industry exposure — Stocks</h2>
+      <p class="hint">Click a row to see which holdings contribute.</p>
       <div id="industryStockEmpty" class="empty" hidden>Add a direct stock holding to see its industry-level exposure.</div>
       <div class="table-scroll">
         <table id="industryStockTable" hidden>
@@ -150,14 +196,30 @@
       </div>
     </section>
 
+    <section class="card tile tile-breakdown tile-tree">
+      <h2>Country → industry — ETFs</h2>
+      <p class="hint">Estimated cross-tab (assumes each fund's sector mix is even across its countries). Always ETF-only.</p>
+      <div id="treeEtfEmpty" class="empty" hidden>Add an ETF holding to see this breakdown.</div>
+      <div id="treeEtfBody" class="tree-scroll" hidden></div>
+    </section>
+
+    <section class="card tile tile-breakdown tile-tree">
+      <h2>Country → industry — Direct</h2>
+      <p class="hint">Exact — each stock has one country and one sector. Always direct-only.</p>
+      <div id="treeStockEmpty" class="empty" hidden>Add a direct stock holding to see this breakdown.</div>
+      <div id="treeStockBody" class="tree-scroll" hidden></div>
+    </section>
+
     <section class="card tile tile-breakdown tile-concentration">
       <h2>Concentration &amp; risk</h2>
+      <p class="hint">Always whole-portfolio, independent of the filter above.</p>
       <div id="concentrationEmpty" class="empty" hidden>Add holdings to see concentration metrics.</div>
       <div id="concentrationBody" class="stat-list" hidden></div>
     </section>
 
     <section class="card tile tile-breakdown tile-overlap">
       <h2>Overlap &amp; redundancy</h2>
+      <p class="hint">Always whole-portfolio, independent of the filter above.</p>
       <div id="overlapEmpty" class="empty" hidden>Add another holding to see overlap between funds.</div>
       <div id="overlapContent" hidden>
         <p class="subheading">Companies held via multiple funds</p>
@@ -180,6 +242,53 @@
             </thead>
             <tbody id="overlapPairBody"></tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card tile tile-breakdown tile-snapshot-form">
+      <h2>Record update</h2>
+      <p class="hint">Composition over time — based on amounts you record, not market value. Snapshots live in this browser only (no cross-device sync yet).</p>
+      <form id="snapshotForm" class="snapshot-form">
+        <input type="date" id="snapshotDate" required />
+        <button type="submit">Record snapshot</button>
+      </form>
+      <div id="snapshotListEmpty" class="empty" hidden>No snapshots recorded yet.</div>
+      <div class="table-scroll table-scroll-sm">
+        <table id="snapshotListTable" hidden>
+          <thead><tr><th>Date</th><th>Total (€)</th><th></th></tr></thead>
+          <tbody id="snapshotListBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card tile tile-history">
+      <h2>Composition over time</h2>
+      <p class="hint">Based on amounts you record, not market value — this is not a performance chart.</p>
+      <div id="historyEmpty" class="empty">Record at least two updates to see trends.</div>
+      <div id="historyContent" hidden>
+        <div class="history-chart-block">
+          <p class="subheading">Total invested</p>
+          <canvas id="historyTotalChart" height="160"></canvas>
+        </div>
+        <div class="history-chart-block">
+          <p class="subheading">Per-ticker amount</p>
+          <canvas id="historyPerTickerChart" height="160"></canvas>
+        </div>
+        <div class="history-chart-block">
+          <p class="subheading history-drift-heading">
+            Allocation drift
+            <select id="driftDimension">
+              <option value="country">Country</option>
+              <option value="sector">Sector</option>
+              <option value="company">Top company</option>
+            </select>
+          </p>
+          <canvas id="historyDriftChart" height="160"></canvas>
+        </div>
+        <div class="history-chart-block">
+          <p class="subheading">Diversification (effective holdings / HHI)</p>
+          <canvas id="historyDiversificationChart" height="160"></canvas>
         </div>
       </div>
     </section>

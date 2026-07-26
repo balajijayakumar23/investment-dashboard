@@ -246,7 +246,9 @@ main {
     grid-template-columns: repeat(2, 1fr);
   }
   .tile-primary,
-  .tile-map {
+  .tile-map,
+  .tile-divergence,
+  .tile-history {
     grid-column: span 2;
   }
 }
@@ -674,6 +676,320 @@ tr[data-country] {
 }
 
 /* =========================================================================
+   SOURCE TOGGLE (Direct | ETF | Combined)
+   ========================================================================= */
+.source-bar {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 14px var(--card-padding);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.segmented {
+  display: inline-flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented-btn {
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 16px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.segmented-btn:hover {
+  color: var(--text);
+}
+
+.segmented-btn.is-active {
+  background: var(--accent-solid-bg);
+  color: var(--accent-contrast);
+}
+
+.source-headline {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+/* =========================================================================
+   DIVERGENCE PANEL
+   ========================================================================= */
+.divergence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.divergence-item {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.divergence-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.divergence-label {
+  font-size: 0.85rem;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.divergence-bars {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
+}
+
+.divergence-vs {
+  color: var(--muted);
+}
+
+.divergence-gap {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* =========================================================================
+   COUNTRY -> INDUSTRY TREES
+   ========================================================================= */
+.tree-scroll {
+  overflow-y: auto;
+  max-height: 380px;
+  margin: 0 calc(var(--card-padding) * -1) calc(var(--card-padding) * -1);
+  padding: 0 var(--card-padding) var(--card-padding);
+}
+
+.tree-country {
+  border-bottom: 1px solid var(--border);
+}
+
+.tree-country:last-child {
+  border-bottom: none;
+}
+
+.tree-country-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 10px 0;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.tree-caret {
+  color: var(--muted);
+  font-size: 0.7rem;
+  width: 10px;
+  flex-shrink: 0;
+}
+
+.tree-country-name {
+  flex: 1;
+}
+
+.tree-country-figures,
+.tree-industry-figures {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tree-pct {
+  color: var(--muted);
+  font-size: 0.78rem;
+  min-width: 42px;
+  text-align: right;
+}
+
+.tree-industries {
+  padding: 0 0 8px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tree-industry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.tree-industry-row:hover {
+  background: var(--card-bg-2);
+}
+
+/* =========================================================================
+   INDUSTRY -> HOLDINGS DRILL-DOWN
+   ========================================================================= */
+tr.drilldown-row {
+  cursor: pointer;
+}
+
+.drilldown-detail td {
+  background: var(--card-bg-2);
+  padding: 10px 12px;
+}
+
+.drilldown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drilldown-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+
+.drilldown-item span:first-child {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.drilldown-item .eur-value {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================================
+   MAP ZOOM
+   ========================================================================= */
+#mapWrap {
+  position: relative;
+}
+
+.map-reset-btn {
+  margin-top: 10px;
+}
+
+:root {
+  --jvm-zoom-btn-bg-color: var(--card-bg);
+  --jvm-zoom-btn-color: var(--accent);
+  --jvm-zoom-btn-size: 22px;
+  --jvm-zoom-btn-radius: 6px;
+}
+
+.jvm-zoom-btn {
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* =========================================================================
+   SNAPSHOTS
+   ========================================================================= */
+.snapshot-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.snapshot-form input[type="date"] {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+
+.snapshot-form button {
+  padding: 9px 18px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-solid-bg);
+  color: var(--accent-contrast);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: filter var(--transition);
+}
+
+.snapshot-form button:hover {
+  filter: brightness(1.08);
+}
+
+/* =========================================================================
+   HISTORY CHARTS
+   ========================================================================= */
+.history-chart-block {
+  margin-bottom: 28px;
+}
+
+.history-chart-block:last-child {
+  margin-bottom: 0;
+}
+
+.history-drift-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#driftDimension {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.updated-cell {
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* =========================================================================
    FOOTER
    ========================================================================= */
 footer {
@@ -710,7 +1026,9 @@ footer {
 
   .dashboard-grid,
   .tile-primary,
-  .tile-map {
+  .tile-map,
+  .tile-divergence,
+  .tile-history {
     grid-column: span 1;
   }
 }

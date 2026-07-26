@@ -3,22 +3,30 @@
 /* =========================================================================
  * ETF Look-Through Dashboard
  *
- * Sections in this file (kept in one file per project layout, but logically
- * separated so any piece can be swapped later without touching the others):
+ * Sections in this file:
  *
- *   1. REGISTRY   - known ETFs / stock name aliases, used for autocomplete
- *                   and for turning a ticker into a display company name.
- *   2. STORAGE     - reads/writes the user's holdings + UI prefs to localStorage.
- *   3. INGESTION   - resolves a single holding into {company, weight}[] that
- *                    sum to 100. Today this reads seeded JSON files under
- *                    data/etf-holdings/. Later it could hit a live API or a
- *                    paste-parser instead - nothing outside this section
- *                    would need to change.
- *   4. ENGINE      - pure aggregation: sources -> per-company exposure.
- *                    Only ever sees {company, weight} pairs, so it has no
- *                    idea where the data came from.
- *   5. RENDER      - DOM + chart output. Reads engine output, writes pixels.
- *   6. MAIN        - wiring: form handling, edit/delete, blur toggle, boot.
+ *   1. REGISTRY    - known ETFs / stock aliases / country+sector tags.
+ *   2. STORAGE      - localStorage for holdings, UI prefs, snapshots.
+ *   3. INGESTION    - resolves a holding into company-level components
+ *                     AND into complete country/sector allocation
+ *                     components. Later this could hit a live API or a
+ *                     paste-parser instead - nothing outside this section
+ *                     would need to change.
+ *   4. ENGINE       - pure aggregation over ingestion's output only.
+ *   4b. ANALYSIS    - concentration/overlap/divergence math, still pure,
+ *                     still only consuming the engine's own output.
+ *   5. RENDER       - DOM + chart + map output.
+ *   6. MAIN         - wiring: forms, edit/delete, toggle, snapshots, boot.
+ *
+ * Data model note (why "Unclassified" never appears): company-level
+ * look-through (the big table) still uses a per-company country/industry
+ * *lookup*, which can legitimately miss an entry (e.g. a residual "remaining
+ * holdings" bucket) - but that only affects the hover-highlight nicety on
+ * that table, nothing else. Country/industry EXPOSURE (breakdown tiles,
+ * trees, map, divergence, snapshots) instead comes from each ETF's own
+ * countryAllocation/sectorAllocation lists (which sum to 100 by
+ * construction) and each stock's own country/sector tag - so every euro
+ * always resolves to a real, or explicitly-labelled, bucket.
  * ===================================================================== */
 
 
@@ -67,10 +75,11 @@ const STOCK_NAME_MAP = {
   ITC: 'ITC Limited',
 };
 
-// Company display name -> ISO 3166-1 alpha-2 country code, used for the
-// country-level breakdown and world map. A company with no entry here
-// (e.g. a residual "remaining holdings (not itemized)" bucket) is grouped under the
-// 'XX' (unclassified) bucket instead of guessed at.
+// Company display name -> ISO 3166-1 alpha-2 country code. Used ONLY for the
+// company look-through table's hover-highlight-the-map nicety - a miss here
+// just means that one row doesn't highlight a country on hover, nothing more
+// (real country EXPOSURE totals never depend on this map - see STOCK_COUNTRY
+// and each ETF's own countryAllocation below).
 const COMPANY_COUNTRY = {
   Apple: 'US',
   Microsoft: 'US',
@@ -128,7 +137,54 @@ const COMPANY_COUNTRY = {
   'Novo Nordisk': 'DK',
 };
 
-// Country code -> display name shown in the country table and map tooltips.
+// Direct-stock ticker -> real country of domicile. Every ticker in
+// STOCK_NAME_MAP has an entry here, so a direct holding always resolves to
+// a real country (never a guess, never "Unclassified"). A ticker typed by
+// the user that ISN'T in this map (arbitrary/unregistered) falls back to a
+// ticker-specific label ("<TICKER> (country not set)") in resolveAllocation
+// Components below - specific and actionable, not a generic catch-all.
+const STOCK_COUNTRY = {
+  AAPL: 'US', MSFT: 'US', NVDA: 'US', AMZN: 'US', GOOGL: 'US', GOOG: 'US',
+  META: 'US', AVGO: 'US', 'BRK.B': 'US', TSLA: 'US', JPM: 'US', LLY: 'US',
+  V: 'US', UNH: 'US', XOM: 'US', NFLX: 'US',
+  TSM: 'TW', ASML: 'NL', HAUTO: 'NO',
+  'NOVO-B': 'DK', NOV: 'DK', NVO: 'DK',
+  SIE: 'DE', ITC: 'IN',
+};
+
+// Direct-stock ticker -> GICS-style sector, same completeness guarantee and
+// fallback behaviour as STOCK_COUNTRY above.
+const STOCK_SECTOR = {
+  AAPL: 'Information Technology',
+  MSFT: 'Information Technology',
+  NVDA: 'Information Technology',
+  AMZN: 'Consumer Discretionary',
+  GOOGL: 'Communication Services',
+  GOOG: 'Communication Services',
+  META: 'Communication Services',
+  AVGO: 'Information Technology',
+  'BRK.B': 'Financials',
+  TSLA: 'Consumer Discretionary',
+  JPM: 'Financials',
+  LLY: 'Health Care',
+  V: 'Financials',
+  UNH: 'Health Care',
+  XOM: 'Energy',
+  NFLX: 'Communication Services',
+  TSM: 'Information Technology',
+  ASML: 'Information Technology',
+  HAUTO: 'Industrials',
+  'NOVO-B': 'Health Care',
+  NOV: 'Health Care',
+  NVO: 'Health Care',
+  SIE: 'Industrials',
+  ITC: 'Consumer Staples',
+};
+
+// Country code -> display name, shown in tables, trees and map tooltips.
+// 'XX' is a deliberate, labelled pseudo-code some ETFs use in their own
+// countryAllocation for "other / diversified, not itemized individually" -
+// it's real fund data, just with no single country to paint on the map.
 const COUNTRY_NAMES = {
   US: 'United States',
   TW: 'Taiwan',
@@ -142,67 +198,13 @@ const COUNTRY_NAMES = {
   AU: 'Australia',
   NO: 'Norway',
   DK: 'Denmark',
-  XX: 'Unclassified / other holdings',
-};
-
-// Company display name -> sector (GICS-style, simplified). Same key set and
-// same "unmapped stays unmapped" rule as COMPANY_COUNTRY — a company with no
-// entry here is grouped under 'Unclassified' rather than guessed.
-const COMPANY_INDUSTRY = {
-  Apple: 'Technology',
-  Microsoft: 'Technology',
-  Nvidia: 'Technology',
-  Amazon: 'Consumer Discretionary',
-  Alphabet: 'Communication Services',
-  'Meta Platforms': 'Communication Services',
-  Broadcom: 'Technology',
-  'Berkshire Hathaway': 'Financials',
-  Tesla: 'Consumer Discretionary',
-  'JPMorgan Chase': 'Financials',
-  'Eli Lilly': 'Health Care',
-  Visa: 'Financials',
-  'UnitedHealth Group': 'Health Care',
-  ExxonMobil: 'Energy',
-  Netflix: 'Communication Services',
-  'Micron Technology': 'Technology',
-  AMD: 'Technology',
-  Intel: 'Technology',
-  'Lam Research': 'Technology',
-  'Applied Materials': 'Technology',
-  'Taiwan Semiconductor Manufacturing (TSMC)': 'Technology',
-  MediaTek: 'Technology',
-  'Delta Electronics': 'Technology',
-  'Hon Hai Precision Industry': 'Technology',
-  'SK Hynix': 'Technology',
-  'Samsung Electronics': 'Technology',
-  'Samsung Electro-Mechanics': 'Technology',
-  'ASML Holding': 'Technology',
-  'HDFC Bank': 'Financials',
-  'ICICI Bank': 'Financials',
-  'Reliance Industries': 'Energy',
-  'Bharti Airtel': 'Communication Services',
-  'Larsen & Toubro': 'Industrials',
-  'State Bank of India': 'Financials',
-  'Axis Bank': 'Financials',
-  Infosys: 'Technology',
-  'Kotak Mahindra Bank': 'Financials',
-  'ITC Limited': 'Consumer Staples',
-  'Mahindra & Mahindra': 'Consumer Discretionary',
-  'Bajaj Finance': 'Financials',
-  'Tata Consultancy Services': 'Technology',
-  'Sun Pharmaceutical Industries': 'Health Care',
-  Eternal: 'Consumer Discretionary',
-  'HSBC Holdings': 'Financials',
-  AstraZeneca: 'Health Care',
-  Shell: 'Energy',
-  'Royal Bank of Canada': 'Financials',
-  'Roche Holding': 'Health Care',
-  Novartis: 'Health Care',
-  'Nestlé': 'Consumer Staples',
-  Siemens: 'Industrials',
-  'BHP Group': 'Materials',
-  'Höegh Autoliners': 'Industrials',
-  'Novo Nordisk': 'Health Care',
+  JP: 'Japan',
+  FR: 'France',
+  BR: 'Brazil',
+  ZA: 'South Africa',
+  SA: 'Saudi Arabia',
+  MX: 'Mexico',
+  XX: 'Other / diversified',
 };
 
 function isKnownEtf(tickerUpper) {
@@ -242,6 +244,8 @@ function buildAutocompleteOptions() {
 
 const STORAGE_KEY = 'ltd.holdings.v1';
 const BLUR_KEY = 'ltd.blurred.v1';
+const SOURCE_FILTER_KEY = 'ltd.sourceFilter.v1';
+const SNAPSHOTS_KEY = 'ltd.snapshots.v1';
 
 function loadHoldings() {
   try {
@@ -266,37 +270,81 @@ function saveBlurState(isBlurred) {
   localStorage.setItem(BLUR_KEY, isBlurred ? 'true' : 'false');
 }
 
+function loadSourceFilter() {
+  const v = localStorage.getItem(SOURCE_FILTER_KEY);
+  return v === 'ETF' || v === 'Direct' ? v : 'Combined';
+}
+
+function saveSourceFilter(filter) {
+  localStorage.setItem(SOURCE_FILTER_KEY, filter);
+}
+
+function loadSnapshots() {
+  try {
+    const raw = localStorage.getItem(SNAPSHOTS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (err) {
+    console.warn('Could not read snapshots from localStorage:', err);
+    return [];
+  }
+}
+
+function saveSnapshots(snapshots) {
+  localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
+}
+
+// Local (not UTC) YYYY-MM-DD, so "today" matches the user's own calendar day.
+function todayStr() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 
 /* -------------------------------------------------------------------- */
 /* 3. INGESTION                                                         */
 /* -------------------------------------------------------------------- */
 
-const holdingsFileCache = new Map(); // ticker -> Promise<{company, weight}[] | null>
+const etfFileCache = new Map(); // ticker -> Promise<parsed JSON | null>
 
-function fetchHoldingsFile(tickerUpper) {
-  if (holdingsFileCache.has(tickerUpper)) return holdingsFileCache.get(tickerUpper);
+function fetchEtfFile(tickerUpper) {
+  if (etfFileCache.has(tickerUpper)) return etfFileCache.get(tickerUpper);
 
   const promise = (async () => {
     try {
       const res = await fetch(`data/etf-holdings/${tickerUpper}.json`, { cache: 'no-store' });
       if (!res.ok) return null;
-      const json = await res.json();
-      if (!Array.isArray(json.holdings)) return null;
-      return json.holdings
-        .filter((h) => h && typeof h.company === 'string' && Number.isFinite(Number(h.weight)))
-        .map((h) => ({ company: h.company.trim(), weight: Number(h.weight) }));
+      return await res.json();
     } catch (err) {
-      console.warn(`Could not load holdings file for ${tickerUpper}:`, err);
+      console.warn(`Could not load ETF file for ${tickerUpper}:`, err);
       return null;
     }
   })();
 
-  holdingsFileCache.set(tickerUpper, promise);
+  etfFileCache.set(tickerUpper, promise);
   return promise;
 }
 
-// Pads a partial/missing holdings list up to 100% with a clearly-labelled
-// residual bucket, so exposure totals always match the amount invested.
+function extractHoldings(json) {
+  if (!json || !Array.isArray(json.holdings)) return null;
+  return json.holdings
+    .filter((h) => h && typeof h.company === 'string' && Number.isFinite(Number(h.weight)))
+    .map((h) => ({ company: h.company.trim(), weight: Number(h.weight) }));
+}
+
+// field: 'countryAllocation' | 'sectorAllocation'; key: 'country' | 'sector'.
+function extractAllocation(json, field, key) {
+  if (!json || !Array.isArray(json[field])) return null;
+  return json[field]
+    .filter((r) => r && typeof r[key] === 'string' && Number.isFinite(Number(r.weight)))
+    .map((r) => ({ [key]: r[key], weight: Number(r.weight) }));
+}
+
+// Pads a partial/missing company holdings list up to 100% with a
+// clearly-labelled residual bucket, so exposure totals always match the
+// amount invested. (Company-level only - country/sector allocation below
+// is already complete by construction, so it never needs this.)
 function padToFull(components, tickerUpper, tolerance = 0.5) {
   const sum = components.reduce((s, c) => s + c.weight, 0);
   const remainder = 100 - sum;
@@ -306,30 +354,55 @@ function padToFull(components, tickerUpper, tolerance = 0.5) {
   return components;
 }
 
-// Resolves one user holding into {company, weight, country, industry}[]
-// summing to ~100. This is the only function the rest of the app needs to
-// know about when a new data source (auto-fetch, paste-UI, etc.) is added
-// later. `country`/`industry` are looked up by company name, so they're
-// always derived from the same single source of truth as the company-level
-// data rather than duplicated per ETF file.
+// Resolves one user holding into {company, weight, country}[] for the
+// COMPANY look-through table only. `country` here is best-effort (via
+// COMPANY_COUNTRY) and only powers the table's hover-highlight nicety.
 async function resolveComponents(tickerUpper, type) {
-  const withMeta = (company, weight) => ({
-    company,
-    weight,
-    country: COMPANY_COUNTRY[company] || 'XX',
-    industry: COMPANY_INDUSTRY[company] || 'Unclassified',
-  });
+  const withCountry = (company, weight) => ({ company, weight, country: COMPANY_COUNTRY[company] || null });
 
   if (type === 'Stock') {
     const company = STOCK_NAME_MAP[tickerUpper] || tickerUpper;
-    return [withMeta(company, 100)];
+    return [withCountry(company, 100)];
   }
 
-  const raw = await fetchHoldingsFile(tickerUpper);
+  const json = await fetchEtfFile(tickerUpper);
+  const raw = extractHoldings(json);
   if (!raw || raw.length === 0) {
-    return [withMeta(`${tickerUpper} — no holdings data available`, 100)];
+    return [withCountry(`${tickerUpper} — no holdings data available`, 100)];
   }
-  return padToFull(raw, tickerUpper).map((c) => withMeta(c.company, c.weight));
+  return padToFull(raw, tickerUpper).map((c) => withCountry(c.company, c.weight));
+}
+
+// Resolves one user holding into COMPLETE country and sector allocations
+// (each summing to 100) for all country/industry exposure math - breakdown
+// tiles, trees, the map, divergence, and snapshots. For an ETF this is the
+// fund's own countryAllocation/sectorAllocation (real fund-level data, not
+// a per-company guess). For a stock it's that stock's own tag. Either way
+// there is no gap: an unregistered ticker gets a specific, actionable
+// "<TICKER> (x not set)" label instead of a generic "Unclassified" bucket.
+async function resolveAllocationComponents(tickerUpper, type) {
+  if (type === 'Stock') {
+    const country = STOCK_COUNTRY[tickerUpper] || `${tickerUpper} (country not set)`;
+    const industry = STOCK_SECTOR[tickerUpper] || `${tickerUpper} (sector not set)`;
+    return {
+      countryComponents: [{ country, weight: 100 }],
+      industryComponents: [{ industry, weight: 100 }],
+    };
+  }
+
+  const json = await fetchEtfFile(tickerUpper);
+  const rawCountry = extractAllocation(json, 'countryAllocation', 'country');
+  const rawIndustry = extractAllocation(json, 'sectorAllocation', 'sector');
+
+  return {
+    countryComponents: rawCountry && rawCountry.length ? rawCountry : [{ country: `${tickerUpper} (country not set)`, weight: 100 }],
+    // rawIndustry entries are shaped {sector, weight} (matching the JSON's
+    // own field name) - rename to {industry, weight} so they match the
+    // 'industry' key every aggregation/tree function downstream expects.
+    industryComponents: rawIndustry && rawIndustry.length
+      ? rawIndustry.map((r) => ({ industry: r.sector, weight: r.weight }))
+      : [{ industry: `${tickerUpper} (sector not set)`, weight: 100 }],
+  };
 }
 
 
@@ -357,23 +430,29 @@ function aggregateExposure(sources) {
   return Array.from(byCompany.values()).sort((a, b) => b.exposureEUR - a.exposureEUR);
 }
 
-// Same sources, aggregated by an arbitrary per-component string field
-// (e.g. 'country', 'industry') instead of company. A component missing that
-// field is grouped under unclassifiedValue rather than guessed.
-// returns: [{ [field]: key, exposureEUR, sources: Set<ticker> }] sorted desc.
-function aggregateByField(sources, field, unclassifiedValue) {
+// Generic aggregation over a named per-source components array (e.g.
+// 'countryComponents' or 'industryComponents'), grouped by `field` (e.g.
+// 'country' or 'industry'). Those arrays are always complete (sum to 100),
+// so - unlike the old version of this function - there is no "unclassified"
+// fallback value needed here. Tracks `contributions` (ticker -> €) per
+// group, which is what powers the industry -> holdings drill-down.
+// returns: [{ [field]: key, exposureEUR, sources: Set<ticker>,
+//              contributions: Map<ticker, exposureEUR> }] sorted desc.
+function aggregateByField(sources, componentsKey, field) {
   const byKey = new Map();
 
   for (const src of sources) {
-    for (const comp of src.components) {
+    const comps = src[componentsKey] || [];
+    for (const comp of comps) {
       const exposureEUR = src.amountEUR * (comp.weight / 100);
-      const key = comp[field] || unclassifiedValue;
+      const key = comp[field];
       if (!byKey.has(key)) {
-        byKey.set(key, { [field]: key, exposureEUR: 0, sources: new Set() });
+        byKey.set(key, { [field]: key, exposureEUR: 0, sources: new Set(), contributions: new Map() });
       }
       const entry = byKey.get(key);
       entry.exposureEUR += exposureEUR;
       entry.sources.add(src.ticker);
+      entry.contributions.set(src.ticker, (entry.contributions.get(src.ticker) || 0) + exposureEUR);
     }
   }
 
@@ -381,11 +460,45 @@ function aggregateByField(sources, field, unclassifiedValue) {
 }
 
 function aggregateByCountry(sources) {
-  return aggregateByField(sources, 'country', 'XX');
+  return aggregateByField(sources, 'countryComponents', 'country');
 }
 
 function aggregateByIndustry(sources) {
-  return aggregateByField(sources, 'industry', 'Unclassified');
+  return aggregateByField(sources, 'industryComponents', 'industry');
+}
+
+// Nested Country -> Industry breakdown for the accordion trees. For a stock
+// (single country + single sector, each 100%) this is exact. For an ETF,
+// country% and sector% are each independently-complete MARGINAL breakdowns
+// (issuers publish these separately, not as a joint table), so the cross-tab
+// here is an ESTIMATE that assumes the fund's sector mix is the same in
+// every country it holds - surfaced to the user as approximate, never
+// presented as exact fund data.
+function buildCountryIndustryTree(sources) {
+  const tree = new Map(); // country -> Map(industry -> exposureEUR)
+
+  for (const src of sources) {
+    const countryComps = src.countryComponents || [];
+    const industryComps = src.industryComponents || [];
+    for (const cc of countryComps) {
+      if (!tree.has(cc.country)) tree.set(cc.country, new Map());
+      const industryMap = tree.get(cc.country);
+      for (const ic of industryComps) {
+        const exposureEUR = src.amountEUR * (cc.weight / 100) * (ic.weight / 100);
+        industryMap.set(ic.industry, (industryMap.get(ic.industry) || 0) + exposureEUR);
+      }
+    }
+  }
+
+  return Array.from(tree.entries())
+    .map(([country, industryMap]) => ({
+      country,
+      exposureEUR: Array.from(industryMap.values()).reduce((s, v) => s + v, 0),
+      industries: Array.from(industryMap.entries())
+        .map(([industry, exposureEUR]) => ({ industry, exposureEUR }))
+        .sort((a, b) => b.exposureEUR - a.exposureEUR),
+    }))
+    .sort((a, b) => b.exposureEUR - a.exposureEUR);
 }
 
 
@@ -394,9 +507,6 @@ function aggregateByIndustry(sources) {
 /*     ingestion or aggregation, just math over {exposureEUR, sources})  */
 /* -------------------------------------------------------------------- */
 
-// Concentration/diversification metrics from the company-level aggregate.
-// aggregated is aggregateExposure()'s output, already sorted desc by
-// exposureEUR - nothing here re-touches ingestion or resolveComponents.
 function computeConcentration(aggregated, totalInvested) {
   if (aggregated.length === 0 || totalInvested <= 0) return null;
 
@@ -411,28 +521,13 @@ function computeConcentration(aggregated, totalInvested) {
   else if (hhi <= 0.25) hhiLabel = 'Moderate concentration';
   else hhiLabel = 'High concentration';
 
-  return {
-    largest: aggregated[0],
-    top5Pct,
-    top10Pct,
-    hhi,
-    hhiLabel,
-    effectiveN,
-    nominalN: aggregated.length,
-  };
+  return { largest: aggregated[0], top5Pct, top10Pct, hhi, hhiLabel, effectiveN, nominalN: aggregated.length };
 }
 
-// Companies contributed to by more than one holding (ETF look-through or
-// direct stock) - a straight filter of the same aggregate, so it's already
-// sorted desc by exposureEUR and its totals already match the look-through
-// table exactly.
 function computeOverlapCompanies(aggregated) {
   return aggregated.filter((r) => r.sources.size > 1);
 }
 
-// A single ETF's own company -> weight% map, built from that source's raw
-// components (fund composition, independent of how much EUR the user put
-// into it) - used only for pairwise fund-overlap, not for any exposure math.
 function buildWeightMap(source) {
   const m = new Map();
   source.components.forEach((c) => {
@@ -441,9 +536,6 @@ function buildWeightMap(source) {
   return m;
 }
 
-// Pairwise overlap % between every two held ETFs: sum over companies present
-// in both funds' holdings of min(weight in A, weight in B). Higher = the two
-// funds duplicate more of each other. Sorted desc.
 function computeEtfPairOverlap(etfSources) {
   const funds = etfSources.map((s) => ({ ticker: s.ticker, weights: buildWeightMap(s) }));
   const pairs = [];
@@ -463,19 +555,43 @@ function computeEtfPairOverlap(etfSources) {
   return pairs.sort((x, y) => y.overlapPct - x.overlapPct);
 }
 
+// % of `total` for every row of an aggregate, keyed by `field`.
+function pctMapFromAgg(agg, field, total) {
+  const m = new Map();
+  agg.forEach((r) => { m.set(r[field], total > 0 ? (r.exposureEUR / total) * 100 : 0); });
+  return m;
+}
+
+// Direct vs ETF % allocation gap for one dimension (company/industry/country).
+// Sorted by absolute gap desc. Percentages are each of THEIR OWN source
+// type's total, so e.g. "100% Energy via direct" isn't diluted just because
+// direct holdings are a small slice of the whole portfolio.
+function buildDivergenceList(directAgg, etfAgg, field, directTotal, etfTotal) {
+  const directPct = pctMapFromAgg(directAgg, field, directTotal);
+  const etfPct = pctMapFromAgg(etfAgg, field, etfTotal);
+  const allKeys = new Set([...directPct.keys(), ...etfPct.keys()]);
+
+  return Array.from(allKeys)
+    .map((key) => {
+      const d = directPct.get(key) || 0;
+      const e = etfPct.get(key) || 0;
+      return { label: key, directPct: d, etfPct: e, gap: Math.abs(d - e) };
+    })
+    .sort((a, b) => b.gap - a.gap);
+}
+
 
 /* -------------------------------------------------------------------- */
 /* 5. RENDER                                                            */
 /* -------------------------------------------------------------------- */
 
 let isBlurred = loadBlurState();
+let sourceFilter = loadSourceFilter();
 let chartInstance = null;
 
 const eurFormatter = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pctFormatter = new Intl.NumberFormat('en-IE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-// Reads a color token from style.css's :root so Chart.js/jsVectorMap (which
-// paint via JS-supplied color values, not CSS) stay in sync with the theme.
 function cssVar(name, fallback) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
@@ -489,7 +605,6 @@ function formatEUR(n) {
   return eurFormatter.format(n);
 }
 
-// Sets text on an element that shows a EUR amount, respecting the blur toggle.
 function setMaskable(el, rawText) {
   el.dataset.raw = rawText;
   el.textContent = isBlurred ? '••••' : rawText;
@@ -539,6 +654,10 @@ function renderHoldingsTable(holdings) {
     amountTd.className = 'eur-value amount-cell';
     setMaskable(amountTd, formatEUR(h.amountEUR));
 
+    const updatedTd = document.createElement('td');
+    updatedTd.className = 'updated-cell';
+    updatedTd.textContent = h.lastUpdated || '—';
+
     const actionsTd = document.createElement('td');
     actionsTd.className = 'actions-cell';
 
@@ -558,6 +677,7 @@ function renderHoldingsTable(holdings) {
     tr.appendChild(tickerTd);
     tr.appendChild(typeTd);
     tr.appendChild(amountTd);
+    tr.appendChild(updatedTd);
     tr.appendChild(actionsTd);
     body.appendChild(tr);
   });
@@ -579,7 +699,7 @@ function renderLookthrough(aggregated, totalInvested) {
 
   aggregated.forEach((row) => {
     const tr = document.createElement('tr');
-    if (row.country && row.country !== 'XX') tr.dataset.country = row.country;
+    if (row.country) tr.dataset.country = row.country;
 
     const companyTd = document.createElement('td');
     companyTd.textContent = row.company;
@@ -604,9 +724,6 @@ function renderLookthrough(aggregated, totalInvested) {
   });
 }
 
-// Anchored at the teal accent hue (174deg) and rotated through the spectrum
-// for differentiation across many companies; calmer saturation/lightness
-// than a raw rainbow to match the "calm, restrained" palette.
 function palette(n) {
   const colors = [];
   const baseHue = 174;
@@ -681,16 +798,18 @@ function renderChart(aggregated) {
   }
 }
 
-// Renders a breakdown table (country or industry, ETF/Stock/combined variant)
-// from an aggregateByField() result. idPrefix picks the DOM ids, e.g.
-// 'countryEtf' -> #countryEtfEmpty/#countryEtfTable/#countryEtfBody.
-// keyField is which property of each row holds the group key ('country' or
-// 'industry'). options.displayNames optionally maps key -> display text
-// (used for country codes; industry names are already display-ready).
-// options.hoverAttr + options.unclassified opt a table into the
-// hover-highlights-the-map behavior (country tables only).
+// Renders a breakdown table (country or industry) from an aggregateByField()
+// result. idPrefix picks the DOM ids, e.g. 'countryEtf' ->
+// #countryEtfEmpty/#countryEtfTable/#countryEtfBody. keyField is which
+// property of each row holds the group key ('country' or 'industry').
+// options.displayNames optionally maps key -> display text (country codes).
+// options.hoverAttr opts a table into hover-highlights-the-map (country
+// tables only; harmless no-op for a code with no matching map region).
+// options.drilldown marks industry rows as click-to-expand (see
+// toggleDrilldown) and stashes each row's per-ticker contributions on the
+// <tr> itself for that handler to read.
 function renderBreakdownTable(idPrefix, agg, totalInvested, keyField, options = {}) {
-  const { displayNames, hoverAttr, unclassified } = options;
+  const { displayNames, hoverAttr, drilldown } = options;
   const empty = document.getElementById(`${idPrefix}Empty`);
   const table = document.getElementById(`${idPrefix}Table`);
   const body = document.getElementById(`${idPrefix}Body`);
@@ -707,7 +826,11 @@ function renderBreakdownTable(idPrefix, agg, totalInvested, keyField, options = 
   agg.forEach((row) => {
     const key = row[keyField];
     const tr = document.createElement('tr');
-    if (hoverAttr && key !== unclassified) tr.dataset[hoverAttr] = key;
+    if (hoverAttr) tr.dataset[hoverAttr] = key;
+    if (drilldown) {
+      tr.classList.add('drilldown-row');
+      tr._contributions = row.contributions;
+    }
 
     const labelTd = document.createElement('td');
     labelTd.textContent = displayNames ? (displayNames[key] || key) : key;
@@ -730,6 +853,58 @@ function renderBreakdownTable(idPrefix, agg, totalInvested, keyField, options = 
     tr.appendChild(sourcesTd);
     body.appendChild(tr);
   });
+}
+
+// Toggles a "which holdings contribute" detail row directly under a
+// drilldown-row (industry breakdown tables + the trees' industry rows all
+// share this). Only one detail row open per tbody, for simplicity.
+function toggleDrilldown(tr, totalInvested) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('drilldown-detail')) {
+    next.remove();
+    return;
+  }
+
+  const tbody = tr.parentElement;
+  const existing = tbody.querySelector('.drilldown-detail');
+  if (existing) existing.remove();
+
+  const contributions = tr._contributions;
+  if (!contributions || contributions.size === 0) return;
+
+  const detailTr = document.createElement('tr');
+  detailTr.className = 'drilldown-detail';
+  const detailTd = document.createElement('td');
+  detailTd.colSpan = tr.children.length;
+
+  const list = document.createElement('div');
+  list.className = 'drilldown-list';
+
+  Array.from(contributions.entries())
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([ticker, exposureEUR]) => {
+      const item = document.createElement('div');
+      item.className = 'drilldown-item';
+
+      const tickerSpan = document.createElement('span');
+      tickerSpan.textContent = ticker;
+
+      const valueSpan = document.createElement('span');
+      valueSpan.className = 'eur-value';
+      const eurEl = document.createElement('span');
+      setMaskable(eurEl, formatEUR(exposureEUR));
+      const pct = totalInvested > 0 ? (exposureEUR / totalInvested) * 100 : 0;
+      valueSpan.appendChild(eurEl);
+      valueSpan.append(` (${pctFormatter.format(pct)}%)`);
+
+      item.appendChild(tickerSpan);
+      item.appendChild(valueSpan);
+      list.appendChild(item);
+    });
+
+  detailTd.appendChild(list);
+  detailTr.appendChild(detailTd);
+  tr.after(detailTr);
 }
 
 function renderSummaryCards(aggregated, countryAgg, industryAgg, totalInvested, concentration) {
@@ -765,8 +940,6 @@ function renderSummaryCards(aggregated, countryAgg, industryAgg, totalInvested, 
     `Effective holdings of ${concentration.nominalN} — ${concentration.hhiLabel}`;
 }
 
-// subNode is an optional pre-built `<div class="stat-sub">` (see
-// buildEurSub/plain text below) shown under the label.
 function buildStatRow(label, valueText, subNode) {
   const row = document.createElement('div');
   row.className = 'stat-row';
@@ -787,7 +960,6 @@ function buildStatRow(label, valueText, subNode) {
   return row;
 }
 
-// A stat-sub line of "<prefix text> — <maskable € amount>".
 function buildEurSub(prefix, eurValue) {
   const sub = document.createElement('div');
   sub.className = 'stat-sub';
@@ -798,7 +970,6 @@ function buildEurSub(prefix, eurValue) {
   return sub;
 }
 
-// A plain-text stat-sub line (no € figure, so nothing to mask).
 function buildTextSub(text) {
   const sub = document.createElement('div');
   sub.className = 'stat-sub';
@@ -826,12 +997,8 @@ function renderConcentration(concentration, totalInvested) {
   body.appendChild(
     buildStatRow('Largest single holding', `${pctFormatter.format(largestPct)}%`, buildEurSub(concentration.largest.company, concentration.largest.exposureEUR))
   );
-  body.appendChild(
-    buildStatRow('Concentration (HHI)', concentration.hhi.toFixed(3), buildTextSub(concentration.hhiLabel))
-  );
-  body.appendChild(
-    buildStatRow('Effective holdings', `~${concentration.effectiveN.toFixed(1)}`, buildTextSub(`of ${concentration.nominalN} nominal`))
-  );
+  body.appendChild(buildStatRow('Concentration (HHI)', concentration.hhi.toFixed(3), buildTextSub(concentration.hhiLabel)));
+  body.appendChild(buildStatRow('Effective holdings', `~${concentration.effectiveN.toFixed(1)}`, buildTextSub(`of ${concentration.nominalN} nominal`)));
 }
 
 function renderOverlap(overlapCompanies, etfPairOverlap, holdingsCount, totalInvested) {
@@ -846,7 +1013,6 @@ function renderOverlap(overlapCompanies, etfPairOverlap, holdingsCount, totalInv
   tileEmpty.hidden = true;
   content.hidden = false;
 
-  // Companies held via multiple funds/stocks
   const companyEmpty = document.getElementById('overlapCompanyEmpty');
   const companyTable = document.getElementById('overlapCompanyTable');
   const companyBody = document.getElementById('overlapCompanyBody');
@@ -885,7 +1051,6 @@ function renderOverlap(overlapCompanies, etfPairOverlap, holdingsCount, totalInv
     });
   }
 
-  // Pairwise ETF overlap
   const pairEmpty = document.getElementById('overlapPairEmpty');
   const pairTable = document.getElementById('overlapPairTable');
   const pairBody = document.getElementById('overlapPairBody');
@@ -905,7 +1070,7 @@ function renderOverlap(overlapCompanies, etfPairOverlap, holdingsCount, totalInv
       pairTd.textContent = `${pair.tickerA} ∩ ${pair.tickerB}`;
 
       const pctTd = document.createElement('td');
-      pctTd.className = 'eur-value'; // reuse right-align + tabular-nums, no masking needed (not a € figure)
+      pctTd.className = 'eur-value';
       pctTd.textContent = `${pctFormatter.format(pair.overlapPct)}%`;
 
       tr.appendChild(pairTd);
@@ -915,10 +1080,159 @@ function renderOverlap(overlapCompanies, etfPairOverlap, holdingsCount, totalInv
   }
 }
 
-// Sequential single-hue ramp (teal, matching --accent-bright) for continuous
-// magnitude encoding on the choropleth map: near-zero recedes toward the
-// surface, max exposure stands out darkest/most saturated (inverted on dark
-// surfaces, where "stands out" means brightest instead of darkest).
+// --- New: source-type toggle + headline -------------------------------
+
+function renderSourceToggleUI() {
+  document.querySelectorAll('.segmented-btn').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.filter === sourceFilter);
+    btn.setAttribute('aria-pressed', String(btn.dataset.filter === sourceFilter));
+  });
+}
+
+function renderHeadline(etfTotal, directTotal, totalInvested) {
+  const el = document.getElementById('sourceHeadline');
+  if (totalInvested <= 0) {
+    el.textContent = '';
+    return;
+  }
+  const etfPct = pctFormatter.format((etfTotal / totalInvested) * 100);
+  const directPct = pctFormatter.format((directTotal / totalInvested) * 100);
+  el.textContent = `${etfPct}% of portfolio is ETF-driven, ${directPct}% direct.`;
+}
+
+// --- New: divergence panel ---------------------------------------------
+
+function renderDivergenceList(idPrefix, rows) {
+  const empty = document.getElementById(`${idPrefix}Empty`);
+  const list = document.getElementById(`${idPrefix}List`);
+  list.innerHTML = '';
+
+  const shown = rows.filter((r) => r.gap > 0.05).slice(0, 5);
+
+  if (shown.length === 0) {
+    empty.hidden = false;
+    list.hidden = true;
+    return;
+  }
+  empty.hidden = true;
+  list.hidden = false;
+
+  shown.forEach((r) => {
+    const item = document.createElement('div');
+    item.className = 'divergence-item';
+
+    const label = document.createElement('div');
+    label.className = 'divergence-label';
+    label.textContent = r.label;
+
+    const bars = document.createElement('div');
+    bars.className = 'divergence-bars';
+    bars.innerHTML = `
+      <span class="divergence-figure">${pctFormatter.format(r.directPct)}% direct</span>
+      <span class="divergence-vs">vs</span>
+      <span class="divergence-figure">${pctFormatter.format(r.etfPct)}% ETF</span>
+      <span class="divergence-gap">Δ${pctFormatter.format(r.gap)}pp</span>
+    `;
+
+    item.appendChild(label);
+    item.appendChild(bars);
+    list.appendChild(item);
+  });
+}
+
+function renderDivergence(divergence, directTotal, etfTotal) {
+  const empty = document.getElementById('divergenceEmpty');
+  const content = document.getElementById('divergenceContent');
+
+  if (directTotal <= 0 || etfTotal <= 0) {
+    empty.hidden = false;
+    content.hidden = true;
+    empty.textContent = directTotal <= 0
+      ? 'No direct holdings yet — add one to compare against your ETF exposure.'
+      : 'No ETF holdings yet — add one to compare against your direct picks.';
+    return;
+  }
+  empty.hidden = true;
+  content.hidden = false;
+
+  renderDivergenceList('divergenceCompanies', divergence.companies);
+  renderDivergenceList('divergenceSectors', divergence.sectors);
+  renderDivergenceList('divergenceCountries', divergence.countries);
+}
+
+// --- New: overall country split (always combined) ----------------------
+
+function renderOverallCountry(countryAgg, totalInvested) {
+  renderBreakdownTable('overallCountry', countryAgg, totalInvested, 'country', {
+    displayNames: COUNTRY_NAMES, hoverAttr: 'country',
+  });
+}
+
+// --- New: country -> industry accordion trees --------------------------
+
+function renderCountryIndustryTree(idPrefix, tree, totalInvested, flatIndustryAgg) {
+  const empty = document.getElementById(`${idPrefix}Empty`);
+  const container = document.getElementById(`${idPrefix}Body`);
+  container.innerHTML = '';
+
+  if (tree.length === 0) {
+    empty.hidden = false;
+    container.hidden = true;
+    return;
+  }
+  empty.hidden = true;
+  container.hidden = false;
+
+  const contributionsByIndustry = new Map();
+  flatIndustryAgg.forEach((r) => contributionsByIndustry.set(r.industry, r.contributions));
+
+  tree.forEach((countryRow) => {
+    const countryPct = totalInvested > 0 ? (countryRow.exposureEUR / totalInvested) * 100 : 0;
+
+    const node = document.createElement('div');
+    node.className = 'tree-country';
+
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'tree-country-head';
+    head.innerHTML = `
+      <span class="tree-caret">▸</span>
+      <span class="tree-country-name">${COUNTRY_NAMES[countryRow.country] || countryRow.country}</span>
+      <span class="tree-country-figures"><span class="eur-value tree-eur"></span><span class="tree-pct">${pctFormatter.format(countryPct)}%</span></span>
+    `;
+    setMaskable(head.querySelector('.tree-eur'), formatEUR(countryRow.exposureEUR));
+
+    const industryList = document.createElement('div');
+    industryList.className = 'tree-industries';
+    industryList.hidden = true;
+
+    countryRow.industries.forEach((industryRow) => {
+      const industryPct = totalInvested > 0 ? (industryRow.exposureEUR / totalInvested) * 100 : 0;
+      const row = document.createElement('div');
+      row.className = 'tree-industry-row drilldown-row';
+      row._contributions = contributionsByIndustry.get(industryRow.industry);
+      row.innerHTML = `
+        <span class="tree-industry-name">${industryRow.industry}</span>
+        <span class="tree-industry-figures"><span class="eur-value tree-eur"></span><span class="tree-pct">${pctFormatter.format(industryPct)}%</span></span>
+      `;
+      setMaskable(row.querySelector('.tree-eur'), formatEUR(industryRow.exposureEUR));
+      industryList.appendChild(row);
+    });
+
+    head.addEventListener('click', () => {
+      const isOpen = !industryList.hidden;
+      industryList.hidden = isOpen;
+      head.querySelector('.tree-caret').textContent = isOpen ? '▸' : '▾';
+    });
+
+    node.appendChild(head);
+    node.appendChild(industryList);
+    container.appendChild(node);
+  });
+}
+
+// --- Map (sequential palette + zoom) ------------------------------------
+
 function buildSequentialSteps() {
   const dark = isDarkMode();
   const hue = 174;
@@ -934,8 +1248,8 @@ function buildSequentialSteps() {
   return arr;
 }
 const SEQUENTIAL_STEPS = buildSequentialSteps();
-const MAP_BASE_FILL = cssVar('--border-strong', '#d7dad9'); // countries with no exposure
-const MAP_HIGHLIGHT_FILL = cssVar('--accent-bright', '#14b8a6'); // hover highlight
+const MAP_BASE_FILL = cssVar('--border-strong', '#d7dad9');
+const MAP_HIGHLIGHT_FILL = cssVar('--accent-bright', '#14b8a6');
 
 function sequentialColor(ratio) {
   const idx = Math.round(Math.max(0, Math.min(1, ratio)) * (SEQUENTIAL_STEPS.length - 1));
@@ -943,14 +1257,14 @@ function sequentialColor(ratio) {
 }
 
 let worldMapInstance = null;
-let countryColorByCode = {}; // code -> currently-painted (non-highlight) color, for restoring after hover
-let countryDataByCode = {}; // code -> { exposureEUR, pct, sources } for tooltips
+let countryColorByCode = {};
+let countryDataByCode = {};
 
 function renderWorldMap(countryAgg, totalInvested) {
   const empty = document.getElementById('mapEmpty');
   const wrap = document.getElementById('mapWrap');
 
-  const held = countryAgg.filter((c) => c.country !== 'XX');
+  const held = countryAgg.filter((c) => /^[A-Z]{2}$/.test(c.country) && c.country !== 'XX');
 
   if (held.length === 0) {
     empty.hidden = false;
@@ -981,7 +1295,8 @@ function renderWorldMap(countryAgg, totalInvested) {
     worldMapInstance = new jsVectorMap({
       selector: '#worldMap',
       map: 'world',
-      zoomButtons: false,
+      zoomButtons: true,
+      zoomOnScroll: true,
       regionStyle: {
         initial: { fill: MAP_BASE_FILL, fillOpacity: 1, stroke: 'none' },
         hover: { fillOpacity: 0.85, cursor: 'pointer' },
@@ -1026,11 +1341,344 @@ function unhighlightCountry(code) {
   if (region && region.element) region.element.setStyle('fill', countryColorByCode[code] || MAP_BASE_FILL);
 }
 
+function handleMapReset() {
+  if (worldMapInstance && typeof worldMapInstance.reset === 'function') {
+    worldMapInstance.reset();
+    paintMapColors();
+  }
+}
+
 function applyBlurButtonState() {
   const btn = document.getElementById('blurToggle');
   btn.setAttribute('aria-pressed', String(isBlurred));
   btn.textContent = isBlurred ? '🙈' : '👁️';
   btn.title = isBlurred ? 'Show amounts' : 'Hide amounts';
+}
+
+// --- New: snapshots + history charts ------------------------------------
+
+function computeSnapshotDerived(holdings, aggregated, countryAgg, industryAgg, concentration, totalInvested) {
+  const perTicker = {};
+  holdings.forEach((h) => { perTicker[h.ticker] = h.amountEUR; });
+
+  const countryPct = {};
+  countryAgg.forEach((r) => { countryPct[r.country] = totalInvested > 0 ? (r.exposureEUR / totalInvested) * 100 : 0; });
+
+  const industryPct = {};
+  industryAgg.forEach((r) => { industryPct[r.industry] = totalInvested > 0 ? (r.exposureEUR / totalInvested) * 100 : 0; });
+
+  const topCompanyPct = {};
+  aggregated.slice(0, 10).forEach((r) => { topCompanyPct[r.company] = totalInvested > 0 ? (r.exposureEUR / totalInvested) * 100 : 0; });
+
+  return {
+    totalInvested,
+    perTicker,
+    allocation: { country: countryPct, industry: industryPct, topCompany: topCompanyPct },
+    diversification: concentration ? { hhi: concentration.hhi, effectiveN: concentration.effectiveN, nominalN: concentration.nominalN } : null,
+  };
+}
+
+function recordSnapshot(dateStr) {
+  const snaps = loadSnapshots();
+  const derived = computeSnapshotDerived(lastHoldings, lastAggregatedAll, lastCountryAggAll, lastIndustryAggAll, lastConcentrationAll, lastTotalInvestedAll);
+  const entry = {
+    date: dateStr,
+    holdings: lastHoldings.map((h) => ({ ticker: h.ticker, type: h.type, amountEUR: h.amountEUR })),
+    derived,
+  };
+  const idx = snaps.findIndex((s) => s.date === dateStr);
+  if (idx !== -1) snaps[idx] = entry; else snaps.push(entry);
+  snaps.sort((a, b) => a.date.localeCompare(b.date));
+  saveSnapshots(snaps);
+  return snaps;
+}
+
+function renderSnapshotList(snapshots) {
+  const empty = document.getElementById('snapshotListEmpty');
+  const table = document.getElementById('snapshotListTable');
+  const body = document.getElementById('snapshotListBody');
+  body.innerHTML = '';
+
+  if (snapshots.length === 0) {
+    empty.hidden = false;
+    table.hidden = true;
+    return;
+  }
+  empty.hidden = true;
+  table.hidden = false;
+
+  // Most recent first for the list (charts below sort ascending themselves).
+  [...snapshots].reverse().forEach((snap) => {
+    const tr = document.createElement('tr');
+    tr.dataset.date = snap.date;
+
+    const dateTd = document.createElement('td');
+    dateTd.className = 'snapshot-date-cell';
+    dateTd.textContent = snap.date;
+
+    const totalTd = document.createElement('td');
+    totalTd.className = 'eur-value';
+    setMaskable(totalTd, formatEUR(snap.derived.totalInvested));
+
+    const actionsTd = document.createElement('td');
+    actionsTd.className = 'actions-cell';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'link-btn edit-snapshot-btn';
+    editBtn.textContent = 'Edit date';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'link-btn delete-snapshot-btn';
+    deleteBtn.textContent = 'Delete';
+
+    actionsTd.appendChild(editBtn);
+    actionsTd.appendChild(deleteBtn);
+
+    tr.appendChild(dateTd);
+    tr.appendChild(totalTd);
+    tr.appendChild(actionsTd);
+    body.appendChild(tr);
+  });
+}
+
+function startSnapshotDateEdit(tr, date) {
+  const dateTd = tr.querySelector('.snapshot-date-cell');
+  const actionsTd = tr.querySelector('.actions-cell');
+
+  dateTd.innerHTML = '';
+  const input = document.createElement('input');
+  input.type = 'date';
+  input.value = date;
+  input.className = 'edit-amount-input';
+  dateTd.appendChild(input);
+  input.focus();
+
+  actionsTd.innerHTML = '';
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'link-btn';
+  saveBtn.textContent = 'Save';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'link-btn';
+  cancelBtn.textContent = 'Cancel';
+
+  actionsTd.appendChild(saveBtn);
+  actionsTd.appendChild(cancelBtn);
+
+  const commit = () => {
+    const newDate = input.value;
+    if (!newDate) { input.focus(); return; }
+    const snaps = loadSnapshots();
+    const idx = snaps.findIndex((s) => s.date === date);
+    if (idx === -1) return;
+    const [entry] = snaps.splice(idx, 1);
+    entry.date = newDate;
+    const collisionIdx = snaps.findIndex((s) => s.date === newDate);
+    if (collisionIdx !== -1) snaps[collisionIdx] = entry; else snaps.push(entry);
+    snaps.sort((a, b) => a.date.localeCompare(b.date));
+    saveSnapshots(snaps);
+    renderSnapshotSection();
+  };
+
+  saveBtn.addEventListener('click', commit);
+  cancelBtn.addEventListener('click', () => renderSnapshotSection());
+}
+
+function handleSnapshotListClick(e) {
+  const tr = e.target.closest('tr[data-date]');
+  if (!tr) return;
+  const date = tr.dataset.date;
+
+  if (e.target.classList.contains('delete-snapshot-btn')) {
+    if (!confirm(`Delete the snapshot recorded on ${date}?`)) return;
+    const snaps = loadSnapshots().filter((s) => s.date !== date);
+    saveSnapshots(snaps);
+    renderSnapshotSection();
+    return;
+  }
+
+  if (e.target.classList.contains('edit-snapshot-btn')) {
+    startSnapshotDateEdit(tr, date);
+  }
+}
+
+let historyTotalChart = null;
+let historyPerTickerChart = null;
+let historyDriftChart = null;
+let historyDiversificationChart = null;
+let driftDimension = 'country';
+
+function destroyHistoryCharts() {
+  [historyTotalChart, historyPerTickerChart, historyDriftChart, historyDiversificationChart].forEach((c) => {
+    if (c) c.destroy();
+  });
+  historyTotalChart = null;
+  historyPerTickerChart = null;
+  historyDriftChart = null;
+  historyDiversificationChart = null;
+}
+
+function baseLineOptions() {
+  const textSecondary = cssVar('--text-secondary', '#4b5157');
+  const border = cssVar('--border', '#e5e7e6');
+  const cardBg = cssVar('--card-bg', '#ffffff');
+  return {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    scales: {
+      x: { ticks: { color: textSecondary, font: { size: 10 } }, grid: { color: border } },
+      y: { ticks: { color: textSecondary, font: { size: 10 } }, grid: { color: border } },
+    },
+    plugins: {
+      legend: { labels: { color: textSecondary, font: { size: 11 }, boxWidth: 10 } },
+      tooltip: { backgroundColor: cardBg, titleColor: cssVar('--text', '#16181b'), bodyColor: textSecondary, borderColor: border, borderWidth: 1 },
+    },
+  };
+}
+
+function renderHistoryCharts(snapshots) {
+  const notice = document.getElementById('historyEmpty');
+  const content = document.getElementById('historyContent');
+
+  if (snapshots.length < 2) {
+    notice.hidden = false;
+    content.hidden = true;
+    destroyHistoryCharts();
+    return;
+  }
+  notice.hidden = true;
+  content.hidden = false;
+
+  const dates = snapshots.map((s) => s.date);
+  const colors = palette(8);
+
+  // 1) Total invested over time
+  {
+    const canvas = document.getElementById('historyTotalChart');
+    const cfg = {
+      type: 'line',
+      data: { labels: dates, datasets: [{ label: 'Total invested (€)', data: snapshots.map((s) => s.derived.totalInvested), borderColor: colors[0], backgroundColor: colors[0], tension: 0.15 }] },
+      options: {
+        ...baseLineOptions(),
+        plugins: {
+          ...baseLineOptions().plugins,
+          tooltip: { ...baseLineOptions().plugins.tooltip, callbacks: { label: (ctx) => (isBlurred ? '••••' : formatEUR(ctx.parsed.y)) } },
+        },
+        scales: { ...baseLineOptions().scales, y: { ...baseLineOptions().scales.y, ticks: { ...baseLineOptions().scales.y.ticks, callback: () => (isBlurred ? '••••' : '') } } },
+      },
+    };
+    if (historyTotalChart) { historyTotalChart.data = cfg.data; historyTotalChart.options = cfg.options; historyTotalChart.update(); }
+    else historyTotalChart = new Chart(canvas.getContext('2d'), cfg);
+  }
+
+  // 2) Per-ticker amount over time - null (not 0) for dates a ticker wasn't
+  // held yet, so lines start/stop cleanly instead of faking a drop to zero.
+  {
+    const allTickers = Array.from(new Set(snapshots.flatMap((s) => Object.keys(s.derived.perTicker))));
+    const tickerColors = palette(Math.max(allTickers.length, 1));
+    const datasets = allTickers.map((ticker, i) => ({
+      label: ticker,
+      data: snapshots.map((s) => (ticker in s.derived.perTicker ? s.derived.perTicker[ticker] : null)),
+      borderColor: tickerColors[i],
+      backgroundColor: tickerColors[i],
+      spanGaps: false,
+      tension: 0.15,
+    }));
+    const canvas = document.getElementById('historyPerTickerChart');
+    const cfg = {
+      type: 'line',
+      data: { labels: dates, datasets },
+      options: {
+        ...baseLineOptions(),
+        plugins: {
+          ...baseLineOptions().plugins,
+          tooltip: { ...baseLineOptions().plugins.tooltip, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${isBlurred ? '••••' : formatEUR(ctx.parsed.y)}` } },
+        },
+        scales: { ...baseLineOptions().scales, y: { ...baseLineOptions().scales.y, ticks: { ...baseLineOptions().scales.y.ticks, callback: () => (isBlurred ? '••••' : '') } } },
+      },
+    };
+    if (historyPerTickerChart) { historyPerTickerChart.data = cfg.data; historyPerTickerChart.options = cfg.options; historyPerTickerChart.update(); }
+    else historyPerTickerChart = new Chart(canvas.getContext('2d'), cfg);
+  }
+
+  // 3) Allocation drift - selectable dimension, true 0% where a category
+  // genuinely had no exposure that day (a real value, not a gap).
+  renderDriftChart(snapshots, dates, colors);
+
+  // 4) Diversification over time
+  {
+    const canvas = document.getElementById('historyDiversificationChart');
+    const withDiv = snapshots.filter((s) => s.derived.diversification);
+    const cfg = {
+      type: 'line',
+      data: {
+        labels: withDiv.map((s) => s.date),
+        datasets: [
+          { label: 'Effective holdings', data: withDiv.map((s) => s.derived.diversification.effectiveN), borderColor: colors[0], backgroundColor: colors[0], yAxisID: 'y', tension: 0.15 },
+          { label: 'HHI', data: withDiv.map((s) => s.derived.diversification.hhi), borderColor: colors[1], backgroundColor: colors[1], yAxisID: 'y1', tension: 0.15 },
+        ],
+      },
+      options: {
+        ...baseLineOptions(),
+        scales: {
+          x: baseLineOptions().scales.x,
+          y: { ...baseLineOptions().scales.y, position: 'left' },
+          y1: { ...baseLineOptions().scales.y, position: 'right', grid: { display: false } },
+        },
+      },
+    };
+    if (historyDiversificationChart) { historyDiversificationChart.data = cfg.data; historyDiversificationChart.options = cfg.options; historyDiversificationChart.update(); }
+    else historyDiversificationChart = new Chart(canvas.getContext('2d'), cfg);
+  }
+}
+
+function renderDriftChart(snapshots, dates, colors) {
+  const dimensionMap = { country: 'country', sector: 'industry', company: 'topCompany' };
+  const allocKey = dimensionMap[driftDimension];
+
+  // Pick the top categories by the latest snapshot's weight, to keep the
+  // chart legible regardless of how many countries/sectors/companies exist.
+  const latest = snapshots[snapshots.length - 1].derived.allocation[allocKey] || {};
+  const topKeys = Object.entries(latest)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([k]) => k);
+
+  const driftColors = palette(Math.max(topKeys.length, 1));
+  const datasets = topKeys.map((key, i) => ({
+    label: driftDimension === 'country' ? (COUNTRY_NAMES[key] || key) : key,
+    data: snapshots.map((s) => {
+      const alloc = s.derived.allocation[allocKey] || {};
+      return key in alloc ? alloc[key] : 0; // real 0, not a gap - allocation % is always defined once a snapshot exists
+    }),
+    borderColor: driftColors[i],
+    backgroundColor: driftColors[i],
+    fill: driftDimension !== 'company',
+    tension: 0.15,
+  }));
+
+  const canvas = document.getElementById('historyDriftChart');
+  const cfg = {
+    type: 'line',
+    data: { labels: dates, datasets },
+    options: {
+      ...baseLineOptions(),
+      plugins: { ...baseLineOptions().plugins, tooltip: { ...baseLineOptions().plugins.tooltip, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${pctFormatter.format(ctx.parsed.y)}%` } } },
+      scales: { ...baseLineOptions().scales, y: { ...baseLineOptions().scales.y, stacked: driftDimension !== 'company' } },
+    },
+  };
+  if (historyDriftChart) { historyDriftChart.data = cfg.data; historyDriftChart.options = cfg.options; historyDriftChart.update(); }
+  else historyDriftChart = new Chart(canvas.getContext('2d'), cfg);
+}
+
+function renderSnapshotSection() {
+  const snaps = loadSnapshots();
+  renderSnapshotList(snaps);
+  renderHistoryCharts(snaps);
 }
 
 
@@ -1039,79 +1687,151 @@ function applyBlurButtonState() {
 /* -------------------------------------------------------------------- */
 
 let lastHoldings = [];
-let lastAggregated = [];
-let lastCountryAgg = [];        // combined ETF + stock, drives the map
-let lastCountryAggEtf = [];     // ETF holdings only
-let lastCountryAggStock = [];   // stock holdings only
-let lastIndustryAgg = [];       // combined ETF + stock, drives the summary cards
-let lastIndustryAggEtf = [];    // ETF holdings only
-let lastIndustryAggStock = [];  // stock holdings only
-let lastConcentration = null;
+
+// Always-combined (independent of the Direct/ETF/Combined toggle).
+let lastAggregatedAll = [];
+let lastCountryAggAll = [];
+let lastIndustryAggAll = [];
+let lastConcentrationAll = null;
 let lastOverlapCompanies = [];
 let lastEtfPairOverlap = [];
-let lastTotalInvested = 0;
+let lastTotalInvestedAll = 0;
+
+// Fixed-source-type, unaffected by the toggle (pre-existing protected tiles).
+let lastCountryAggEtf = [];
+let lastCountryAggStock = [];
+let lastIndustryAggEtf = [];
+let lastIndustryAggStock = [];
+let lastTreeEtf = [];
+let lastTreeStock = [];
+let lastDivergence = { companies: [], sectors: [], countries: [] };
+let lastEtfTotal = 0;
+let lastDirectTotal = 0;
+
+// Toggle-filtered (company table, chart, map, summary cards).
+let lastAggregatedFiltered = [];
+let lastCountryAggFiltered = [];
+let lastIndustryAggFiltered = [];
+let lastConcentrationFiltered = null;
+let lastTotalInvestedFiltered = 0;
+
+// Cached raw sources so the toggle can re-filter without re-fetching.
+let cachedAllSources = [];
+let cachedEtfSources = [];
+let cachedStockSources = [];
+
+function applySourceFilter() {
+  const filtered = sourceFilter === 'ETF' ? cachedEtfSources : sourceFilter === 'Direct' ? cachedStockSources : cachedAllSources;
+  lastTotalInvestedFiltered = filtered.reduce((s, src) => s + src.amountEUR, 0);
+  lastAggregatedFiltered = aggregateExposure(filtered);
+  lastCountryAggFiltered = aggregateByCountry(filtered);
+  lastIndustryAggFiltered = aggregateByIndustry(filtered);
+  lastConcentrationFiltered = computeConcentration(lastAggregatedFiltered, lastTotalInvestedFiltered);
+}
 
 function renderAll() {
   applyBlurButtonState();
-  renderTotal(lastTotalInvested);
+  renderSourceToggleUI();
+  renderHeadline(lastEtfTotal, lastDirectTotal, lastTotalInvestedAll);
+  renderTotal(lastTotalInvestedAll);
   renderHoldingsTable(lastHoldings);
-  renderLookthrough(lastAggregated, lastTotalInvested);
-  renderChart(lastAggregated);
-  renderBreakdownTable('countryEtf', lastCountryAggEtf, lastTotalInvested, 'country', {
-    displayNames: COUNTRY_NAMES, hoverAttr: 'country', unclassified: 'XX',
-  });
-  renderBreakdownTable('countryStock', lastCountryAggStock, lastTotalInvested, 'country', {
-    displayNames: COUNTRY_NAMES, hoverAttr: 'country', unclassified: 'XX',
-  });
-  renderWorldMap(lastCountryAgg, lastTotalInvested);
-  renderBreakdownTable('industryEtf', lastIndustryAggEtf, lastTotalInvested, 'industry', { unclassified: 'Unclassified' });
-  renderBreakdownTable('industryStock', lastIndustryAggStock, lastTotalInvested, 'industry', { unclassified: 'Unclassified' });
-  renderSummaryCards(lastAggregated, lastCountryAgg, lastIndustryAgg, lastTotalInvested, lastConcentration);
-  renderConcentration(lastConcentration, lastTotalInvested);
-  renderOverlap(lastOverlapCompanies, lastEtfPairOverlap, lastHoldings.length, lastTotalInvested);
+
+  renderLookthrough(lastAggregatedFiltered, lastTotalInvestedFiltered);
+  renderChart(lastAggregatedFiltered);
+  renderWorldMap(lastCountryAggFiltered, lastTotalInvestedFiltered);
+  renderSummaryCards(lastAggregatedFiltered, lastCountryAggFiltered, lastIndustryAggFiltered, lastTotalInvestedFiltered, lastConcentrationFiltered);
+
+  renderBreakdownTable('countryEtf', lastCountryAggEtf, lastTotalInvestedAll, 'country', { displayNames: COUNTRY_NAMES, hoverAttr: 'country' });
+  renderBreakdownTable('countryStock', lastCountryAggStock, lastTotalInvestedAll, 'country', { displayNames: COUNTRY_NAMES, hoverAttr: 'country' });
+  renderBreakdownTable('industryEtf', lastIndustryAggEtf, lastTotalInvestedAll, 'industry', { drilldown: true });
+  renderBreakdownTable('industryStock', lastIndustryAggStock, lastTotalInvestedAll, 'industry', { drilldown: true });
+
+  renderOverallCountry(lastCountryAggAll, lastTotalInvestedAll);
+  renderDivergence(lastDivergence, lastDirectTotal, lastEtfTotal);
+  renderCountryIndustryTree('treeEtf', lastTreeEtf, lastTotalInvestedAll, lastIndustryAggEtf);
+  renderCountryIndustryTree('treeStock', lastTreeStock, lastTotalInvestedAll, lastIndustryAggStock);
+
+  renderConcentration(lastConcentrationAll, lastTotalInvestedAll);
+  renderOverlap(lastOverlapCompanies, lastEtfPairOverlap, lastHoldings.length, lastTotalInvestedAll);
+
+  renderSnapshotSection();
 }
 
 async function refreshAll() {
   lastHoldings = loadHoldings();
-  lastTotalInvested = lastHoldings.reduce((s, h) => s + h.amountEUR, 0);
+  lastTotalInvestedAll = lastHoldings.reduce((s, h) => s + h.amountEUR, 0);
 
   if (lastHoldings.length === 0) {
-    lastAggregated = [];
-    lastCountryAgg = [];
-    lastCountryAggEtf = [];
-    lastCountryAggStock = [];
-    lastIndustryAgg = [];
-    lastIndustryAggEtf = [];
-    lastIndustryAggStock = [];
-    lastConcentration = null;
+    lastAggregatedAll = [];
+    lastCountryAggAll = [];
+    lastIndustryAggAll = [];
+    lastConcentrationAll = null;
     lastOverlapCompanies = [];
     lastEtfPairOverlap = [];
+    lastCountryAggEtf = [];
+    lastCountryAggStock = [];
+    lastIndustryAggEtf = [];
+    lastIndustryAggStock = [];
+    lastTreeEtf = [];
+    lastTreeStock = [];
+    lastDivergence = { companies: [], sectors: [], countries: [] };
+    lastEtfTotal = 0;
+    lastDirectTotal = 0;
+    cachedAllSources = [];
+    cachedEtfSources = [];
+    cachedStockSources = [];
+    applySourceFilter();
     renderAll();
     return;
   }
 
   const sources = await Promise.all(
-    lastHoldings.map(async (h) => ({
-      ticker: h.ticker,
-      type: h.type,
-      amountEUR: h.amountEUR,
-      components: await resolveComponents(h.ticker, h.type),
-    }))
+    lastHoldings.map(async (h) => {
+      const [components, allocation] = await Promise.all([
+        resolveComponents(h.ticker, h.type),
+        resolveAllocationComponents(h.ticker, h.type),
+      ]);
+      return {
+        ticker: h.ticker,
+        type: h.type,
+        amountEUR: h.amountEUR,
+        components,
+        countryComponents: allocation.countryComponents,
+        industryComponents: allocation.industryComponents,
+      };
+    })
   );
 
   const etfSources = sources.filter((s) => s.type === 'ETF');
   const stockSources = sources.filter((s) => s.type === 'Stock');
+  cachedAllSources = sources;
+  cachedEtfSources = etfSources;
+  cachedStockSources = stockSources;
 
-  lastAggregated = aggregateExposure(sources);
-  lastCountryAgg = aggregateByCountry(sources);
+  lastAggregatedAll = aggregateExposure(sources);
+  lastCountryAggAll = aggregateByCountry(sources);
+  lastIndustryAggAll = aggregateByIndustry(sources);
+  lastConcentrationAll = computeConcentration(lastAggregatedAll, lastTotalInvestedAll);
+  lastOverlapCompanies = computeOverlapCompanies(lastAggregatedAll);
+  lastEtfPairOverlap = computeEtfPairOverlap(etfSources);
+
   lastCountryAggEtf = aggregateByCountry(etfSources);
   lastCountryAggStock = aggregateByCountry(stockSources);
-  lastIndustryAgg = aggregateByIndustry(sources);
   lastIndustryAggEtf = aggregateByIndustry(etfSources);
   lastIndustryAggStock = aggregateByIndustry(stockSources);
-  lastConcentration = computeConcentration(lastAggregated, lastTotalInvested);
-  lastOverlapCompanies = computeOverlapCompanies(lastAggregated);
-  lastEtfPairOverlap = computeEtfPairOverlap(etfSources);
+
+  lastTreeEtf = buildCountryIndustryTree(etfSources);
+  lastTreeStock = buildCountryIndustryTree(stockSources);
+
+  lastEtfTotal = etfSources.reduce((s, src) => s + src.amountEUR, 0);
+  lastDirectTotal = stockSources.reduce((s, src) => s + src.amountEUR, 0);
+  lastDivergence = {
+    companies: buildDivergenceList(aggregateExposure(stockSources), aggregateExposure(etfSources), 'company', lastDirectTotal, lastEtfTotal),
+    sectors: buildDivergenceList(lastIndustryAggStock, lastIndustryAggEtf, 'industry', lastDirectTotal, lastEtfTotal),
+    countries: buildDivergenceList(lastCountryAggStock, lastCountryAggEtf, 'country', lastDirectTotal, lastEtfTotal),
+  };
+
+  applySourceFilter();
   renderAll();
 }
 
@@ -1153,7 +1873,7 @@ function handleAddSubmit(e) {
   }
 
   const type = inferType(tickerUpper);
-  holdings.push({ ticker: tickerUpper, type, amountEUR });
+  holdings.push({ ticker: tickerUpper, type, amountEUR, lastUpdated: todayStr() });
   saveHoldings(holdings);
 
   tickerInput.value = '';
@@ -1224,6 +1944,7 @@ function startEdit(tr, ticker) {
     const idx = current.findIndex((h) => h.ticker === ticker);
     if (idx !== -1) {
       current[idx].amountEUR = newAmount;
+      current[idx].lastUpdated = todayStr();
       saveHoldings(current);
     }
     refreshAll();
@@ -1243,6 +1964,17 @@ function handleBlurToggle() {
   renderAll();
 }
 
+function handleSourceFilterClick(e) {
+  const btn = e.target.closest('.segmented-btn');
+  if (!btn) return;
+  const filter = btn.dataset.filter;
+  if (filter === sourceFilter) return;
+  sourceFilter = filter;
+  saveSourceFilter(sourceFilter);
+  applySourceFilter();
+  renderAll();
+}
+
 function handleRowHoverIn(e) {
   const tr = e.target.closest('tr[data-country]');
   if (tr) highlightCountry(tr.dataset.country);
@@ -1253,6 +1985,25 @@ function handleRowHoverOut(e) {
   if (tr) unhighlightCountry(tr.dataset.country);
 }
 
+function handleDrilldownClick(e) {
+  const tr = e.target.closest('tr.drilldown-row, .tree-industry-row.drilldown-row');
+  if (!tr) return;
+  toggleDrilldown(tr, lastTotalInvestedAll);
+}
+
+function handleSnapshotSubmit(e) {
+  e.preventDefault();
+  const dateInput = document.getElementById('snapshotDate');
+  const dateStr = dateInput.value || todayStr();
+  recordSnapshot(dateStr);
+  renderSnapshotSection();
+}
+
+function handleDriftDimensionChange(e) {
+  driftDimension = e.target.value;
+  renderHistoryCharts(loadSnapshots());
+}
+
 function init() {
   buildAutocompleteOptions();
   renderStatus();
@@ -1260,13 +2011,27 @@ function init() {
   document.getElementById('addForm').addEventListener('submit', handleAddSubmit);
   document.getElementById('holdingsBody').addEventListener('click', handleHoldingsClick);
   document.getElementById('blurToggle').addEventListener('click', handleBlurToggle);
+  document.getElementById('sourceToggle').addEventListener('click', handleSourceFilterClick);
+  document.getElementById('mapResetBtn').addEventListener('click', handleMapReset);
+  document.getElementById('snapshotForm').addEventListener('submit', handleSnapshotSubmit);
+  document.getElementById('snapshotListBody').addEventListener('click', handleSnapshotListClick);
+  document.getElementById('driftDimension').addEventListener('change', handleDriftDimensionChange);
 
-  // Hovering a company or country row highlights that country on the map.
-  // mouseover/mouseout (not mouseenter/mouseleave) so delegation works.
-  ['lookthroughBody', 'countryEtfBody', 'countryStockBody'].forEach((id) => {
+  const dateInput = document.getElementById('snapshotDate');
+  dateInput.value = todayStr();
+  dateInput.max = todayStr();
+
+  // Hovering a company/country row highlights that country on the map.
+  ['lookthroughBody', 'countryEtfBody', 'countryStockBody', 'overallCountryBody'].forEach((id) => {
     const el = document.getElementById(id);
     el.addEventListener('mouseover', handleRowHoverIn);
     el.addEventListener('mouseout', handleRowHoverOut);
+  });
+
+  // Clicking an industry row (breakdown tables or tree leaves) drills down
+  // into which holdings contribute. Delegated once per container.
+  ['industryEtfBody', 'industryStockBody', 'treeEtfBody', 'treeStockBody'].forEach((id) => {
+    document.getElementById(id).addEventListener('click', handleDrilldownClick);
   });
 
   refreshAll();

@@ -15,5 +15,30 @@
     { "company": "Siemens", "weight": 0.95 },
     { "company": "Shell", "weight": 0.90 },
     { "company": "BHP Group", "weight": 0.89 }
+  ],
+  "allocationNote": "Country/sector allocation is an ILLUSTRATIVE SNAPSHOT, not live data — verify against the issuer factsheet (etf.dws.com) before relying on it. 'XX' is 'Other developed markets, diversified' (smaller country weights not itemized individually) — a real, labeled bucket, not an unclassified one.",
+  "countryAllocation": [
+    { "country": "JP", "weight": 22 },
+    { "country": "GB", "weight": 14 },
+    { "country": "CA", "weight": 9 },
+    { "country": "FR", "weight": 8 },
+    { "country": "CH", "weight": 8 },
+    { "country": "DE", "weight": 7 },
+    { "country": "AU", "weight": 6 },
+    { "country": "NL", "weight": 4 },
+    { "country": "XX", "weight": 22 }
+  ],
+  "sectorAllocation": [
+    { "sector": "Financials", "weight": 20 },
+    { "sector": "Industrials", "weight": 15 },
+    { "sector": "Health Care", "weight": 11 },
+    { "sector": "Consumer Discretionary", "weight": 10 },
+    { "sector": "Information Technology", "weight": 9 },
+    { "sector": "Consumer Staples", "weight": 9 },
+    { "sector": "Materials", "weight": 7 },
+    { "sector": "Communication Services", "weight": 6 },
+    { "sector": "Energy", "weight": 5 },
+    { "sector": "Utilities", "weight": 4 },
+    { "sector": "Real Estate", "weight": 4 }
   ]
 }

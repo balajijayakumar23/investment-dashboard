@@ -14,5 +14,29 @@
     { "company": "HDFC Bank", "weight": 0.87 },
     { "company": "Reliance Industries", "weight": 0.84 },
     { "company": "Samsung Electro-Mechanics", "weight": 0.79 }
+  ],
+  "allocationNote": "Country/sector allocation is an ILLUSTRATIVE SNAPSHOT, not live data — verify against the issuer factsheet (blackrock.com) before relying on it. 'XX' is 'Other / diversified' (smaller EM-ex-China country weights not itemized individually) — a real, labeled bucket, not an unclassified one.",
+  "countryAllocation": [
+    { "country": "TW", "weight": 32 },
+    { "country": "IN", "weight": 20 },
+    { "country": "KR", "weight": 15 },
+    { "country": "BR", "weight": 8 },
+    { "country": "ZA", "weight": 5 },
+    { "country": "SA", "weight": 4 },
+    { "country": "MX", "weight": 4 },
+    { "country": "XX", "weight": 12 }
+  ],
+  "sectorAllocation": [
+    { "sector": "Information Technology", "weight": 30 },
+    { "sector": "Financials", "weight": 22 },
+    { "sector": "Consumer Discretionary", "weight": 10 },
+    { "sector": "Communication Services", "weight": 8 },
+    { "sector": "Materials", "weight": 8 },
+    { "sector": "Energy", "weight": 7 },
+    { "sector": "Consumer Staples", "weight": 5 },
+    { "sector": "Industrials", "weight": 5 },
+    { "sector": "Health Care", "weight": 3 },
+    { "sector": "Utilities", "weight": 1 },
+    { "sector": "Real Estate", "weight": 1 }
   ]
 }

@@ -20,5 +20,22 @@
     { "company": "UnitedHealth Group", "weight": 1.0 },
     { "company": "ExxonMobil", "weight": 1.0 },
     { "company": "Netflix", "weight": 0.9 }
+  ],
+  "allocationNote": "Country and sector allocation below are an ILLUSTRATIVE SNAPSHOT (not live data) — verify against the issuer factsheet (ishares.com) before relying on them. Unlike the top-holdings list above, these two breakdowns are each complete (sum to 100), so country/sector exposure for this fund is never left unclassified.",
+  "countryAllocation": [
+    { "country": "US", "weight": 100 }
+  ],
+  "sectorAllocation": [
+    { "sector": "Information Technology", "weight": 32 },
+    { "sector": "Financials", "weight": 13 },
+    { "sector": "Health Care", "weight": 11 },
+    { "sector": "Consumer Discretionary", "weight": 10 },
+    { "sector": "Communication Services", "weight": 9 },
+    { "sector": "Industrials", "weight": 8 },
+    { "sector": "Consumer Staples", "weight": 6 },
+    { "sector": "Energy", "weight": 4 },
+    { "sector": "Utilities", "weight": 3 },
+    { "sector": "Materials", "weight": 2 },
+    { "sector": "Real Estate", "weight": 2 }
   ]
 }

@@ -15,5 +15,17 @@
     { "company": "Intel", "weight": 3.97 },
     { "company": "Lam Research", "weight": 2.90 },
     { "company": "Applied Materials", "weight": 2.58 }
+  ],
+  "allocationNote": "Country/sector allocation is an ILLUSTRATIVE SNAPSHOT, not live data — verify against the issuer factsheet (amundietf.com) before relying on it. 'XX' is a deliberate non-map pseudo-code for 'Other / diversified' (smaller country weights not itemized individually) — it's a real, labeled bucket, not an unclassified one; it just has no single country to paint on the map.",
+  "countryAllocation": [
+    { "country": "US", "weight": 55 },
+    { "country": "TW", "weight": 20 },
+    { "country": "NL", "weight": 8 },
+    { "country": "KR", "weight": 7 },
+    { "country": "JP", "weight": 5 },
+    { "country": "XX", "weight": 5 }
+  ],
+  "sectorAllocation": [
+    { "sector": "Information Technology", "weight": 100 }
   ]
 }

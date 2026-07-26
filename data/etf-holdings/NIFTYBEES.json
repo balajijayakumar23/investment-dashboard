@@ -20,5 +20,22 @@
     { "company": "Tata Consultancy Services", "weight": 1.89 },
     { "company": "Sun Pharmaceutical Industries", "weight": 1.80 },
     { "company": "Eternal", "weight": 1.74 }
+  ],
+  "allocationNote": "Country/sector allocation is an ILLUSTRATIVE SNAPSHOT, not live data — verify against the issuer factsheet (nipponindiaim.com) before relying on it. Sector weights are approximate Nifty 50 composition, not an exact fund disclosure.",
+  "countryAllocation": [
+    { "country": "IN", "weight": 100 }
+  ],
+  "sectorAllocation": [
+    { "sector": "Financials", "weight": 35 },
+    { "sector": "Information Technology", "weight": 13 },
+    { "sector": "Energy", "weight": 10 },
+    { "sector": "Consumer Discretionary", "weight": 9 },
+    { "sector": "Consumer Staples", "weight": 8 },
+    { "sector": "Industrials", "weight": 6 },
+    { "sector": "Health Care", "weight": 5 },
+    { "sector": "Materials", "weight": 5 },
+    { "sector": "Communication Services", "weight": 4 },
+    { "sector": "Utilities", "weight": 3 },
+    { "sector": "Real Estate", "weight": 2 }
   ]
 }
