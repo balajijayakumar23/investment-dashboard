@@ -33,6 +33,26 @@
     <p id="formError" class="error" hidden></p>
   </section>
 
+  <div id="summaryEmpty" class="empty" hidden>Add holdings to see your portfolio summary.</div>
+  <div id="summaryRow" class="summary-row" hidden>
+    <div class="summary-card">
+      <div class="summary-value" id="summaryLargestHoldingValue">—</div>
+      <div class="summary-caption" id="summaryLargestHoldingCaption">Largest holding</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value" id="summaryLargestSectorValue">—</div>
+      <div class="summary-caption" id="summaryLargestSectorCaption">Largest sector</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value" id="summaryLargestCountryValue">—</div>
+      <div class="summary-caption" id="summaryLargestCountryCaption">Largest country</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value" id="summaryDiversificationValue">—</div>
+      <div class="summary-caption" id="summaryDiversificationCaption">Diversification</div>
+    </div>
+  </div>
+
   <div class="dashboard-grid">
 
     <section class="card tile tile-holdings">
@@ -127,6 +147,40 @@
           </thead>
           <tbody id="industryStockBody"></tbody>
         </table>
+      </div>
+    </section>
+
+    <section class="card tile tile-breakdown tile-concentration">
+      <h2>Concentration &amp; risk</h2>
+      <div id="concentrationEmpty" class="empty" hidden>Add holdings to see concentration metrics.</div>
+      <div id="concentrationBody" class="stat-list" hidden></div>
+    </section>
+
+    <section class="card tile tile-breakdown tile-overlap">
+      <h2>Overlap &amp; redundancy</h2>
+      <div id="overlapEmpty" class="empty" hidden>Add another holding to see overlap between funds.</div>
+      <div id="overlapContent" hidden>
+        <p class="subheading">Companies held via multiple funds</p>
+        <div id="overlapCompanyEmpty" class="empty" hidden>No companies are currently held via more than one fund or stock.</div>
+        <div class="table-scroll table-scroll-sm">
+          <table id="overlapCompanyTable" hidden>
+            <thead>
+              <tr><th>Company</th><th>Combined (€)</th><th>Combined %</th><th>Sources</th></tr>
+            </thead>
+            <tbody id="overlapCompanyBody"></tbody>
+          </table>
+        </div>
+
+        <p class="subheading">Fund overlap (pairwise)</p>
+        <div id="overlapPairEmpty" class="empty" hidden>Hold two or more ETFs to see fund-pair overlap.</div>
+        <div class="table-scroll table-scroll-sm">
+          <table id="overlapPairTable" hidden>
+            <thead>
+              <tr><th>ETF pair</th><th>Overlap</th></tr>
+            </thead>
+            <tbody id="overlapPairBody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 

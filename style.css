@@ -321,6 +321,97 @@ main {
   max-width: none;
 }
 
+/* Unlike .table-scroll's default (which bleeds to the tile's bottom edge -
+   correct when it's the tile's only/last element), -sm is used for multiple
+   sub-tables stacked inside one card, so it stays fully contained instead. */
+.table-scroll-sm {
+  --table-max-h: 170px;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+/* =========================================================================
+   ANALYSIS: summary cards + stat list + subsections
+   ========================================================================= */
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--gap);
+}
+
+.summary-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 18px var(--card-padding);
+}
+
+.summary-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  overflow-wrap: break-word;
+}
+
+.summary-caption {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.subheading {
+  margin: 4px 0 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.stat-sub {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.stat-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.stat-value.accent {
+  color: var(--accent);
+  font-size: 1rem;
+}
+
 /* =========================================================================
    FORMS
    ========================================================================= */

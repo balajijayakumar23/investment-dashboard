@@ -390,6 +390,81 @@ function aggregateByIndustry(sources) {
 
 
 /* -------------------------------------------------------------------- */
+/* 4b. ANALYSIS (pure - consumes the engine's own output above; no new   */
+/*     ingestion or aggregation, just math over {exposureEUR, sources})  */
+/* -------------------------------------------------------------------- */
+
+// Concentration/diversification metrics from the company-level aggregate.
+// aggregated is aggregateExposure()'s output, already sorted desc by
+// exposureEUR - nothing here re-touches ingestion or resolveComponents.
+function computeConcentration(aggregated, totalInvested) {
+  if (aggregated.length === 0 || totalInvested <= 0) return null;
+
+  const fractions = aggregated.map((r) => r.exposureEUR / totalInvested);
+  const top5Pct = fractions.slice(0, 5).reduce((s, f) => s + f, 0) * 100;
+  const top10Pct = fractions.slice(0, 10).reduce((s, f) => s + f, 0) * 100;
+  const hhi = fractions.reduce((s, f) => s + f * f, 0);
+  const effectiveN = hhi > 0 ? 1 / hhi : aggregated.length;
+
+  let hhiLabel;
+  if (hhi < 0.15) hhiLabel = 'Low concentration';
+  else if (hhi <= 0.25) hhiLabel = 'Moderate concentration';
+  else hhiLabel = 'High concentration';
+
+  return {
+    largest: aggregated[0],
+    top5Pct,
+    top10Pct,
+    hhi,
+    hhiLabel,
+    effectiveN,
+    nominalN: aggregated.length,
+  };
+}
+
+// Companies contributed to by more than one holding (ETF look-through or
+// direct stock) - a straight filter of the same aggregate, so it's already
+// sorted desc by exposureEUR and its totals already match the look-through
+// table exactly.
+function computeOverlapCompanies(aggregated) {
+  return aggregated.filter((r) => r.sources.size > 1);
+}
+
+// A single ETF's own company -> weight% map, built from that source's raw
+// components (fund composition, independent of how much EUR the user put
+// into it) - used only for pairwise fund-overlap, not for any exposure math.
+function buildWeightMap(source) {
+  const m = new Map();
+  source.components.forEach((c) => {
+    m.set(c.company, (m.get(c.company) || 0) + c.weight);
+  });
+  return m;
+}
+
+// Pairwise overlap % between every two held ETFs: sum over companies present
+// in both funds' holdings of min(weight in A, weight in B). Higher = the two
+// funds duplicate more of each other. Sorted desc.
+function computeEtfPairOverlap(etfSources) {
+  const funds = etfSources.map((s) => ({ ticker: s.ticker, weights: buildWeightMap(s) }));
+  const pairs = [];
+
+  for (let i = 0; i < funds.length; i++) {
+    for (let j = i + 1; j < funds.length; j++) {
+      const a = funds[i];
+      const b = funds[j];
+      let overlapPct = 0;
+      a.weights.forEach((weightA, company) => {
+        if (b.weights.has(company)) overlapPct += Math.min(weightA, b.weights.get(company));
+      });
+      pairs.push({ tickerA: a.ticker, tickerB: b.ticker, overlapPct });
+    }
+  }
+
+  return pairs.sort((x, y) => y.overlapPct - x.overlapPct);
+}
+
+
+/* -------------------------------------------------------------------- */
 /* 5. RENDER                                                            */
 /* -------------------------------------------------------------------- */
 
@@ -657,6 +732,189 @@ function renderBreakdownTable(idPrefix, agg, totalInvested, keyField, options = 
   });
 }
 
+function renderSummaryCards(aggregated, countryAgg, industryAgg, totalInvested, concentration) {
+  const empty = document.getElementById('summaryEmpty');
+  const row = document.getElementById('summaryRow');
+
+  if (aggregated.length === 0 || !concentration) {
+    empty.hidden = false;
+    row.hidden = true;
+    return;
+  }
+  empty.hidden = true;
+  row.hidden = false;
+
+  const pctOf = (exposureEUR) => (totalInvested > 0 ? (exposureEUR / totalInvested) * 100 : 0);
+
+  const largest = concentration.largest;
+  document.getElementById('summaryLargestHoldingValue').textContent = `${pctFormatter.format(pctOf(largest.exposureEUR))}%`;
+  document.getElementById('summaryLargestHoldingCaption').textContent = `Largest holding — ${largest.company}`;
+
+  const topSector = industryAgg[0];
+  document.getElementById('summaryLargestSectorValue').textContent = topSector ? `${pctFormatter.format(pctOf(topSector.exposureEUR))}%` : '—';
+  document.getElementById('summaryLargestSectorCaption').textContent = topSector ? `Largest sector — ${topSector.industry}` : 'Largest sector';
+
+  const topCountry = countryAgg[0];
+  document.getElementById('summaryLargestCountryValue').textContent = topCountry ? `${pctFormatter.format(pctOf(topCountry.exposureEUR))}%` : '—';
+  document.getElementById('summaryLargestCountryCaption').textContent = topCountry
+    ? `Largest country — ${COUNTRY_NAMES[topCountry.country] || topCountry.country}`
+    : 'Largest country';
+
+  document.getElementById('summaryDiversificationValue').textContent = `~${concentration.effectiveN.toFixed(1)}`;
+  document.getElementById('summaryDiversificationCaption').textContent =
+    `Effective holdings of ${concentration.nominalN} — ${concentration.hhiLabel}`;
+}
+
+// subNode is an optional pre-built `<div class="stat-sub">` (see
+// buildEurSub/plain text below) shown under the label.
+function buildStatRow(label, valueText, subNode) {
+  const row = document.createElement('div');
+  row.className = 'stat-row';
+
+  const left = document.createElement('div');
+  const labelEl = document.createElement('div');
+  labelEl.className = 'stat-label';
+  labelEl.textContent = label;
+  left.appendChild(labelEl);
+  if (subNode) left.appendChild(subNode);
+
+  const valueEl = document.createElement('span');
+  valueEl.className = 'stat-value accent';
+  valueEl.textContent = valueText;
+
+  row.appendChild(left);
+  row.appendChild(valueEl);
+  return row;
+}
+
+// A stat-sub line of "<prefix text> — <maskable € amount>".
+function buildEurSub(prefix, eurValue) {
+  const sub = document.createElement('div');
+  sub.className = 'stat-sub';
+  sub.append(`${prefix} — `);
+  const eurSpan = document.createElement('span');
+  setMaskable(eurSpan, formatEUR(eurValue));
+  sub.appendChild(eurSpan);
+  return sub;
+}
+
+// A plain-text stat-sub line (no € figure, so nothing to mask).
+function buildTextSub(text) {
+  const sub = document.createElement('div');
+  sub.className = 'stat-sub';
+  sub.textContent = text;
+  return sub;
+}
+
+function renderConcentration(concentration, totalInvested) {
+  const empty = document.getElementById('concentrationEmpty');
+  const body = document.getElementById('concentrationBody');
+
+  if (!concentration) {
+    empty.hidden = false;
+    body.hidden = true;
+    return;
+  }
+  empty.hidden = true;
+  body.hidden = false;
+  body.innerHTML = '';
+
+  const largestPct = totalInvested > 0 ? (concentration.largest.exposureEUR / totalInvested) * 100 : 0;
+
+  body.appendChild(buildStatRow('Top 5 holdings', `${pctFormatter.format(concentration.top5Pct)}%`));
+  body.appendChild(buildStatRow('Top 10 holdings', `${pctFormatter.format(concentration.top10Pct)}%`));
+  body.appendChild(
+    buildStatRow('Largest single holding', `${pctFormatter.format(largestPct)}%`, buildEurSub(concentration.largest.company, concentration.largest.exposureEUR))
+  );
+  body.appendChild(
+    buildStatRow('Concentration (HHI)', concentration.hhi.toFixed(3), buildTextSub(concentration.hhiLabel))
+  );
+  body.appendChild(
+    buildStatRow('Effective holdings', `~${concentration.effectiveN.toFixed(1)}`, buildTextSub(`of ${concentration.nominalN} nominal`))
+  );
+}
+
+function renderOverlap(overlapCompanies, etfPairOverlap, holdingsCount, totalInvested) {
+  const tileEmpty = document.getElementById('overlapEmpty');
+  const content = document.getElementById('overlapContent');
+
+  if (holdingsCount < 2) {
+    tileEmpty.hidden = false;
+    content.hidden = true;
+    return;
+  }
+  tileEmpty.hidden = true;
+  content.hidden = false;
+
+  // Companies held via multiple funds/stocks
+  const companyEmpty = document.getElementById('overlapCompanyEmpty');
+  const companyTable = document.getElementById('overlapCompanyTable');
+  const companyBody = document.getElementById('overlapCompanyBody');
+  companyBody.innerHTML = '';
+
+  if (overlapCompanies.length === 0) {
+    companyEmpty.hidden = false;
+    companyTable.hidden = true;
+  } else {
+    companyEmpty.hidden = true;
+    companyTable.hidden = false;
+
+    overlapCompanies.forEach((row) => {
+      const tr = document.createElement('tr');
+
+      const companyTd = document.createElement('td');
+      companyTd.textContent = row.company;
+
+      const exposureTd = document.createElement('td');
+      exposureTd.className = 'eur-value';
+      setMaskable(exposureTd, formatEUR(row.exposureEUR));
+
+      const pctTd = document.createElement('td');
+      const pct = totalInvested > 0 ? (row.exposureEUR / totalInvested) * 100 : 0;
+      pctTd.textContent = `${pctFormatter.format(pct)}%`;
+
+      const sourcesTd = document.createElement('td');
+      sourcesTd.className = 'sources-cell';
+      sourcesTd.textContent = Array.from(row.sources).join(', ');
+
+      tr.appendChild(companyTd);
+      tr.appendChild(exposureTd);
+      tr.appendChild(pctTd);
+      tr.appendChild(sourcesTd);
+      companyBody.appendChild(tr);
+    });
+  }
+
+  // Pairwise ETF overlap
+  const pairEmpty = document.getElementById('overlapPairEmpty');
+  const pairTable = document.getElementById('overlapPairTable');
+  const pairBody = document.getElementById('overlapPairBody');
+  pairBody.innerHTML = '';
+
+  if (etfPairOverlap.length === 0) {
+    pairEmpty.hidden = false;
+    pairTable.hidden = true;
+  } else {
+    pairEmpty.hidden = true;
+    pairTable.hidden = false;
+
+    etfPairOverlap.forEach((pair) => {
+      const tr = document.createElement('tr');
+
+      const pairTd = document.createElement('td');
+      pairTd.textContent = `${pair.tickerA} ∩ ${pair.tickerB}`;
+
+      const pctTd = document.createElement('td');
+      pctTd.className = 'eur-value'; // reuse right-align + tabular-nums, no masking needed (not a € figure)
+      pctTd.textContent = `${pctFormatter.format(pair.overlapPct)}%`;
+
+      tr.appendChild(pairTd);
+      tr.appendChild(pctTd);
+      pairBody.appendChild(tr);
+    });
+  }
+}
+
 // Sequential single-hue ramp (teal, matching --accent-bright) for continuous
 // magnitude encoding on the choropleth map: near-zero recedes toward the
 // surface, max exposure stands out darkest/most saturated (inverted on dark
@@ -785,8 +1043,12 @@ let lastAggregated = [];
 let lastCountryAgg = [];        // combined ETF + stock, drives the map
 let lastCountryAggEtf = [];     // ETF holdings only
 let lastCountryAggStock = [];   // stock holdings only
+let lastIndustryAgg = [];       // combined ETF + stock, drives the summary cards
 let lastIndustryAggEtf = [];    // ETF holdings only
 let lastIndustryAggStock = [];  // stock holdings only
+let lastConcentration = null;
+let lastOverlapCompanies = [];
+let lastEtfPairOverlap = [];
 let lastTotalInvested = 0;
 
 function renderAll() {
@@ -804,6 +1066,9 @@ function renderAll() {
   renderWorldMap(lastCountryAgg, lastTotalInvested);
   renderBreakdownTable('industryEtf', lastIndustryAggEtf, lastTotalInvested, 'industry', { unclassified: 'Unclassified' });
   renderBreakdownTable('industryStock', lastIndustryAggStock, lastTotalInvested, 'industry', { unclassified: 'Unclassified' });
+  renderSummaryCards(lastAggregated, lastCountryAgg, lastIndustryAgg, lastTotalInvested, lastConcentration);
+  renderConcentration(lastConcentration, lastTotalInvested);
+  renderOverlap(lastOverlapCompanies, lastEtfPairOverlap, lastHoldings.length, lastTotalInvested);
 }
 
 async function refreshAll() {
@@ -815,8 +1080,12 @@ async function refreshAll() {
     lastCountryAgg = [];
     lastCountryAggEtf = [];
     lastCountryAggStock = [];
+    lastIndustryAgg = [];
     lastIndustryAggEtf = [];
     lastIndustryAggStock = [];
+    lastConcentration = null;
+    lastOverlapCompanies = [];
+    lastEtfPairOverlap = [];
     renderAll();
     return;
   }
@@ -837,8 +1106,12 @@ async function refreshAll() {
   lastCountryAgg = aggregateByCountry(sources);
   lastCountryAggEtf = aggregateByCountry(etfSources);
   lastCountryAggStock = aggregateByCountry(stockSources);
+  lastIndustryAgg = aggregateByIndustry(sources);
   lastIndustryAggEtf = aggregateByIndustry(etfSources);
   lastIndustryAggStock = aggregateByIndustry(stockSources);
+  lastConcentration = computeConcentration(lastAggregated, lastTotalInvested);
+  lastOverlapCompanies = computeOverlapCompanies(lastAggregated);
+  lastEtfPairOverlap = computeEtfPairOverlap(etfSources);
   renderAll();
 }
 
