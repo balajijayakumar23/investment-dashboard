@@ -626,11 +626,16 @@ function renderTotal(totalInvested) {
   setMaskable(el, `Total invested: ${formatEUR(totalInvested)}`);
 }
 
+const HOLDINGS_SCROLL_CAP = 30; // beyond this many rows, re-cap height + scroll as a safety net
+
 function renderHoldingsTable(holdings) {
   const empty = document.getElementById('holdingsEmpty');
   const table = document.getElementById('holdingsTable');
   const body = document.getElementById('holdingsBody');
+  const scrollWrap = table.closest('.table-scroll');
   body.innerHTML = '';
+
+  if (scrollWrap) scrollWrap.classList.toggle('scroll-capped', holdings.length > HOLDINGS_SCROLL_CAP);
 
   if (holdings.length === 0) {
     empty.hidden = false;
@@ -644,40 +649,43 @@ function renderHoldingsTable(holdings) {
     const tr = document.createElement('tr');
     tr.dataset.ticker = h.ticker;
 
-    const tickerTd = document.createElement('td');
-    tickerTd.textContent = h.ticker;
-
-    const typeTd = document.createElement('td');
-    typeTd.innerHTML = `<span class="badge badge-${h.type.toLowerCase()}">${h.type}</span>`;
+    // Ticker + type badge share one cell (rather than two columns), and the
+    // last-updated date moves into a hover tooltip - this tile is only 1
+    // grid column wide, so a 5-column table doesn't fit without scrolling.
+    const holdingTd = document.createElement('td');
+    holdingTd.className = 'holding-cell';
+    holdingTd.title = `Updated ${h.lastUpdated || '—'}`;
+    holdingTd.innerHTML = `${h.ticker} <span class="badge badge-${h.type.toLowerCase()}">${h.type}</span>`;
 
     const amountTd = document.createElement('td');
     amountTd.className = 'eur-value amount-cell';
     setMaskable(amountTd, formatEUR(h.amountEUR));
 
-    const updatedTd = document.createElement('td');
-    updatedTd.className = 'updated-cell';
-    updatedTd.textContent = h.lastUpdated || '—';
-
     const actionsTd = document.createElement('td');
     actionsTd.className = 'actions-cell';
 
+    // Icon-only (not "Edit"/"Delete" text) so the 5-column table stays
+    // narrow enough to fit its 1-grid-column tile without needing
+    // horizontal scroll to reach the actions.
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
-    editBtn.className = 'link-btn edit-btn';
-    editBtn.textContent = 'Edit';
+    editBtn.className = 'link-btn icon-btn edit-btn';
+    editBtn.textContent = '✎';
+    editBtn.title = 'Edit';
+    editBtn.setAttribute('aria-label', 'Edit holding');
 
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
-    deleteBtn.className = 'link-btn delete-btn';
-    deleteBtn.textContent = 'Delete';
+    deleteBtn.className = 'link-btn icon-btn delete-btn';
+    deleteBtn.textContent = '✕';
+    deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete holding');
 
     actionsTd.appendChild(editBtn);
     actionsTd.appendChild(deleteBtn);
 
-    tr.appendChild(tickerTd);
-    tr.appendChild(typeTd);
+    tr.appendChild(holdingTd);
     tr.appendChild(amountTd);
-    tr.appendChild(updatedTd);
     tr.appendChild(actionsTd);
     body.appendChild(tr);
   });
@@ -907,6 +915,21 @@ function toggleDrilldown(tr, totalInvested) {
   tr.after(detailTr);
 }
 
+// Shown wherever the effective-holdings figure appears (KPI card + the
+// Concentration tile's own row) - Combined-tab only, see renderSummaryCards
+// and renderConcentration.
+const EFFECTIVE_HOLDINGS_EXPLANATION =
+  "You own more companies on paper, but your money is concentrated in a few. This is how many you're really spread across — higher means more diversified.";
+
+function buildInfoIcon(explanation) {
+  const icon = document.createElement('span');
+  icon.className = 'info-icon';
+  icon.tabIndex = 0;
+  icon.title = explanation;
+  icon.textContent = 'ⓘ';
+  return icon;
+}
+
 function renderSummaryCards(aggregated, countryAgg, industryAgg, totalInvested, concentration) {
   const empty = document.getElementById('summaryEmpty');
   const row = document.getElementById('summaryRow');
@@ -923,31 +946,37 @@ function renderSummaryCards(aggregated, countryAgg, industryAgg, totalInvested, 
 
   const largest = concentration.largest;
   document.getElementById('summaryLargestHoldingValue').textContent = `${pctFormatter.format(pctOf(largest.exposureEUR))}%`;
-  document.getElementById('summaryLargestHoldingCaption').textContent = `Largest holding — ${largest.company}`;
+  document.getElementById('summaryLargestHoldingDetail').textContent = largest.company;
 
   const topSector = industryAgg[0];
   document.getElementById('summaryLargestSectorValue').textContent = topSector ? `${pctFormatter.format(pctOf(topSector.exposureEUR))}%` : '—';
-  document.getElementById('summaryLargestSectorCaption').textContent = topSector ? `Largest sector — ${topSector.industry}` : 'Largest sector';
+  document.getElementById('summaryLargestSectorDetail').textContent = topSector ? topSector.industry : '';
 
   const topCountry = countryAgg[0];
   document.getElementById('summaryLargestCountryValue').textContent = topCountry ? `${pctFormatter.format(pctOf(topCountry.exposureEUR))}%` : '—';
-  document.getElementById('summaryLargestCountryCaption').textContent = topCountry
-    ? `Largest country — ${COUNTRY_NAMES[topCountry.country] || topCountry.country}`
-    : 'Largest country';
+  document.getElementById('summaryLargestCountryDetail').textContent = topCountry ? (COUNTRY_NAMES[topCountry.country] || topCountry.country) : '';
 
-  document.getElementById('summaryDiversificationValue').textContent = `~${concentration.effectiveN.toFixed(1)}`;
-  document.getElementById('summaryDiversificationCaption').textContent =
-    `Effective holdings of ${concentration.nominalN} — ${concentration.hhiLabel}`;
+  // Effective holdings only makes sense on the merged (Combined) look-through
+  // - on the ETF/Direct tabs it's hidden entirely rather than shown filtered.
+  const diversificationCard = document.getElementById('summaryDiversificationCard');
+  if (sourceFilter === 'Combined') {
+    diversificationCard.hidden = false;
+    document.getElementById('summaryDiversificationValue').textContent = `effectively ${concentration.effectiveN.toFixed(1)} holdings`;
+    document.getElementById('summaryDiversificationDetail').textContent = `of ${concentration.nominalN} nominal — ${concentration.hhiLabel}`;
+  } else {
+    diversificationCard.hidden = true;
+  }
 }
 
-function buildStatRow(label, valueText, subNode) {
+function buildStatRow(label, valueText, subNode, labelIcon) {
   const row = document.createElement('div');
   row.className = 'stat-row';
 
   const left = document.createElement('div');
   const labelEl = document.createElement('div');
   labelEl.className = 'stat-label';
-  labelEl.textContent = label;
+  labelEl.append(label);
+  if (labelIcon) labelEl.appendChild(labelIcon);
   left.appendChild(labelEl);
   if (subNode) left.appendChild(subNode);
 
@@ -998,7 +1027,19 @@ function renderConcentration(concentration, totalInvested) {
     buildStatRow('Largest single holding', `${pctFormatter.format(largestPct)}%`, buildEurSub(concentration.largest.company, concentration.largest.exposureEUR))
   );
   body.appendChild(buildStatRow('Concentration (HHI)', concentration.hhi.toFixed(3), buildTextSub(concentration.hhiLabel)));
-  body.appendChild(buildStatRow('Effective holdings', `~${concentration.effectiveN.toFixed(1)}`, buildTextSub(`of ${concentration.nominalN} nominal`)));
+
+  // Effective holdings only makes sense on the merged (Combined) look-through
+  // - hidden entirely on the ETF/Direct tabs rather than shown filtered.
+  if (sourceFilter === 'Combined') {
+    body.appendChild(
+      buildStatRow(
+        'Effective holdings',
+        `effectively ${concentration.effectiveN.toFixed(1)} holdings`,
+        buildTextSub(`of ${concentration.nominalN} nominal`),
+        buildInfoIcon(EFFECTIVE_HOLDINGS_EXPLANATION)
+      )
+    );
+  }
 }
 
 function renderOverlap(overlapCompanies, etfPairOverlap, holdingsCount, totalInvested) {

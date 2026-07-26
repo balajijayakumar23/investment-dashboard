@@ -303,8 +303,58 @@ main {
   --table-max-h: 520px;
 }
 
+/* Your holdings grows to fit its rows instead of scrolling internally - the
+   tile expands in the grid. .scroll-capped (toggled in JS past
+   HOLDINGS_SCROLL_CAP rows) reinstates a max-height + scroll as a safety
+   net so an extreme number of holdings can't run the page away. */
+/* .table-scroll's negative margin/padding (base rule above) only makes sense
+   when the box is height-constrained (it "bleeds" a scrolling area flush to
+   the tile's edge) - reset both here so the uncapped, naturally-sized table
+   just sits in the card's normal padding instead of mismeasuring the tile's
+   height and visually overlapping whatever tile comes after it. */
 .tile-holdings .table-scroll {
-  --table-max-h: 300px;
+  max-height: none;
+  overflow-y: visible;
+  overflow-x: auto; /* keep the horizontal safety net - this tile is only
+                        1 grid column wide, narrower than the table's 5
+                        columns, so this must stay contained or it renders
+                        outside the tile and overlaps whatever is next to it */
+  margin: 0;
+  padding: 0;
+}
+
+.tile-holdings .table-scroll.scroll-capped {
+  max-height: 640px;
+  overflow-y: auto;
+  overflow-x: auto;
+  margin: 0 calc(var(--card-padding) * -1) calc(var(--card-padding) * -1);
+  padding: 0 var(--card-padding) var(--card-padding);
+}
+
+/* This tile is only 1 grid column wide (~300-350px) but the table has 5
+   columns - tighten padding/font and use icon-only actions (see .icon-btn)
+   so the row fits without needing the horizontal scroll above. */
+.tile-holdings table {
+  font-size: 0.82rem;
+}
+
+.tile-holdings tbody td {
+  padding: 8px 6px;
+}
+
+.holding-cell {
+  white-space: nowrap;
+}
+
+.holding-cell .badge {
+  margin-left: 4px;
+  padding: 2px 7px;
+}
+
+.icon-btn {
+  padding: 4px 6px;
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
 /* The four small breakdown tiles (Country/Industry x ETF/Stock) are only
@@ -337,7 +387,7 @@ main {
    ========================================================================= */
 .summary-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: var(--gap);
 }
 
@@ -346,22 +396,60 @@ main {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  padding: 18px var(--card-padding);
+  padding: 28px var(--card-padding) 26px;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .summary-value {
-  font-size: 1.6rem;
+  margin-top: 12px;
+  font-size: 2.4rem;
   font-weight: 700;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
-  line-height: 1.2;
+  line-height: 1.15;
   overflow-wrap: break-word;
 }
 
-.summary-caption {
-  margin-top: 6px;
-  font-size: 0.8rem;
+.summary-detail {
+  margin-top: 8px;
+  font-size: 0.88rem;
   color: var(--text-secondary);
+  overflow-wrap: break-word;
+  min-height: 1.2em;
+}
+
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+.info-icon:hover,
+.info-icon:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .subheading {
@@ -392,6 +480,9 @@ main {
 }
 
 .stat-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
@@ -557,7 +648,7 @@ main table tbody td:nth-child(3) {
 #countryStockTable thead th:nth-child(2), #countryStockTable thead th:nth-child(3),
 #industryEtfTable thead th:nth-child(2), #industryEtfTable thead th:nth-child(3),
 #industryStockTable thead th:nth-child(2), #industryStockTable thead th:nth-child(3),
-#holdingsTable thead th:nth-child(3) {
+#holdingsTable thead th:nth-child(2) {
   text-align: right;
 }
 
@@ -981,12 +1072,6 @@ tr.drilldown-row {
   font-size: 0.72rem;
   text-transform: none;
   letter-spacing: normal;
-}
-
-.updated-cell {
-  color: var(--muted);
-  font-size: 0.82rem;
-  white-space: nowrap;
 }
 
 /* =========================================================================

@@ -45,20 +45,27 @@
   <div id="summaryEmpty" class="empty" hidden>Add holdings to see your portfolio summary.</div>
   <div id="summaryRow" class="summary-row" hidden>
     <div class="summary-card">
+      <div class="summary-title">Largest holding</div>
       <div class="summary-value" id="summaryLargestHoldingValue">—</div>
-      <div class="summary-caption" id="summaryLargestHoldingCaption">Largest holding</div>
+      <div class="summary-detail" id="summaryLargestHoldingDetail"></div>
     </div>
     <div class="summary-card">
+      <div class="summary-title">Largest sector</div>
       <div class="summary-value" id="summaryLargestSectorValue">—</div>
-      <div class="summary-caption" id="summaryLargestSectorCaption">Largest sector</div>
+      <div class="summary-detail" id="summaryLargestSectorDetail"></div>
     </div>
     <div class="summary-card">
+      <div class="summary-title">Largest country</div>
       <div class="summary-value" id="summaryLargestCountryValue">—</div>
-      <div class="summary-caption" id="summaryLargestCountryCaption">Largest country</div>
+      <div class="summary-detail" id="summaryLargestCountryDetail"></div>
     </div>
-    <div class="summary-card">
+    <div class="summary-card" id="summaryDiversificationCard">
+      <div class="summary-title">
+        Diversification
+        <span class="info-icon" tabindex="0" title="You own more companies on paper, but your money is concentrated in a few. This is how many you're really spread across — higher means more diversified.">ⓘ</span>
+      </div>
       <div class="summary-value" id="summaryDiversificationValue">—</div>
-      <div class="summary-caption" id="summaryDiversificationCaption">Diversification</div>
+      <div class="summary-detail" id="summaryDiversificationDetail"></div>
     </div>
   </div>
 
@@ -70,7 +77,7 @@
       <div class="table-scroll">
         <table id="holdingsTable" hidden>
           <thead>
-            <tr><th>Ticker</th><th>Type</th><th>Amount (€)</th><th>Updated</th><th></th></tr>
+            <tr><th>Holding</th><th>Amount (€)</th><th></th></tr>
           </thead>
           <tbody id="holdingsBody"></tbody>
         </table>
