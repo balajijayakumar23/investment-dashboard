@@ -5,37 +5,162 @@
   "asOf": "2025-06-30",
   "source": "ILLUSTRATIVE SNAPSHOT — not live data. Replace with current top holdings from the issuer factsheet (ishares.com) before relying on this for real decisions.",
   "holdings": [
-    { "company": "Apple", "weight": 7.0 },
-    { "company": "Microsoft", "weight": 6.5 },
-    { "company": "Nvidia", "weight": 6.0 },
-    { "company": "Amazon", "weight": 3.8 },
-    { "company": "Alphabet", "weight": 3.7 },
-    { "company": "Meta Platforms", "weight": 2.6 },
-    { "company": "Broadcom", "weight": 1.6 },
-    { "company": "Berkshire Hathaway", "weight": 1.6 },
-    { "company": "Tesla", "weight": 1.5 },
-    { "company": "JPMorgan Chase", "weight": 1.3 },
-    { "company": "Eli Lilly", "weight": 1.3 },
-    { "company": "Visa", "weight": 1.1 },
-    { "company": "UnitedHealth Group", "weight": 1.0 },
-    { "company": "ExxonMobil", "weight": 1.0 },
-    { "company": "Netflix", "weight": 0.9 }
+    {
+      "company": "Apple",
+      "weight": 7,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Microsoft",
+      "weight": 6.5,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Nvidia",
+      "weight": 6,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Amazon",
+      "weight": 3.8,
+      "country": "US",
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "company": "Alphabet",
+      "weight": 3.7,
+      "country": "US",
+      "sector": "Communication Services"
+    },
+    {
+      "company": "Meta Platforms",
+      "weight": 2.6,
+      "country": "US",
+      "sector": "Communication Services"
+    },
+    {
+      "company": "Broadcom",
+      "weight": 1.6,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Berkshire Hathaway",
+      "weight": 1.6,
+      "country": "US",
+      "sector": "Financials"
+    },
+    {
+      "company": "Tesla",
+      "weight": 1.5,
+      "country": "US",
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "company": "JPMorgan Chase",
+      "weight": 1.3,
+      "country": "US",
+      "sector": "Financials"
+    },
+    {
+      "company": "Eli Lilly",
+      "weight": 1.3,
+      "country": "US",
+      "sector": "Health Care"
+    },
+    {
+      "company": "Visa",
+      "weight": 1.1,
+      "country": "US",
+      "sector": "Financials"
+    },
+    {
+      "company": "UnitedHealth Group",
+      "weight": 1,
+      "country": "US",
+      "sector": "Health Care"
+    },
+    {
+      "company": "ExxonMobil",
+      "weight": 1,
+      "country": "US",
+      "sector": "Energy"
+    },
+    {
+      "company": "Netflix",
+      "weight": 0.9,
+      "country": "US",
+      "sector": "Communication Services"
+    }
   ],
-  "allocationNote": "Country and sector allocation below are an ILLUSTRATIVE SNAPSHOT (not live data) — verify against the issuer factsheet (ishares.com) before relying on them. Unlike the top-holdings list above, these two breakdowns are each complete (sum to 100), so country/sector exposure for this fund is never left unclassified.",
-  "countryAllocation": [
-    { "country": "US", "weight": 100 }
+  "tail": {
+    "weight": 59.1,
+    "note": "Remaining ~485 S&P 500 constituents, not itemized individually. Sector mix within this tail assumes the fund's overall published sector composition (all US, single country, so no cross-country ambiguity).",
+    "split": [
+      {
+        "country": "US",
+        "sector": "Information Technology",
+        "weight": 10.9
+      },
+      {
+        "country": "US",
+        "sector": "Financials",
+        "weight": 9
+      },
+      {
+        "country": "US",
+        "sector": "Health Care",
+        "weight": 8.7
+      },
+      {
+        "country": "US",
+        "sector": "Consumer Discretionary",
+        "weight": 4.7
+      },
+      {
+        "country": "US",
+        "sector": "Communication Services",
+        "weight": 1.8
+      },
+      {
+        "country": "US",
+        "sector": "Industrials",
+        "weight": 8
+      },
+      {
+        "country": "US",
+        "sector": "Consumer Staples",
+        "weight": 6
+      },
+      {
+        "country": "US",
+        "sector": "Energy",
+        "weight": 3
+      },
+      {
+        "country": "US",
+        "sector": "Utilities",
+        "weight": 3
+      },
+      {
+        "country": "US",
+        "sector": "Materials",
+        "weight": 2
+      },
+      {
+        "country": "US",
+        "sector": "Real Estate",
+        "weight": 2
+      }
+    ]
+  },
+  "verify": [
+    "Top-15 holding weights against the iShares factsheet",
+    "Whether the fund still tracks 100% US (no non-US secondary listings)"
   ],
-  "sectorAllocation": [
-    { "sector": "Information Technology", "weight": 32 },
-    { "sector": "Financials", "weight": 13 },
-    { "sector": "Health Care", "weight": 11 },
-    { "sector": "Consumer Discretionary", "weight": 10 },
-    { "sector": "Communication Services", "weight": 9 },
-    { "sector": "Industrials", "weight": 8 },
-    { "sector": "Consumer Staples", "weight": 6 },
-    { "sector": "Energy", "weight": 4 },
-    { "sector": "Utilities", "weight": 3 },
-    { "sector": "Materials", "weight": 2 },
-    { "sector": "Real Estate", "weight": 2 }
-  ]
+  "allocationNote": "Country and sector exposure below are computed directly from the per-company holdings + tail split above (a real joint dataset, not independent marginal breakdowns cross-multiplied) — a sector only ever appears under a country this fund actually holds. The itemized holdings above are real reported weights; the tail split is a clearly-labelled estimate for the un-itemized remainder — see \"verify\" for what to confirm against the issuer factsheet.",
+  "approxConstituents": 500
 }

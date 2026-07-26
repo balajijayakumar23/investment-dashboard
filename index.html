@@ -37,7 +37,7 @@
     <div id="sourceToggle" class="segmented" role="group" aria-label="Filter by source type">
       <button type="button" class="segmented-btn" data-filter="Combined">Combined</button>
       <button type="button" class="segmented-btn" data-filter="ETF">ETF</button>
-      <button type="button" class="segmented-btn" data-filter="Direct">Direct</button>
+      <button type="button" class="segmented-btn" data-filter="Direct">Stocks</button>
     </div>
     <p id="sourceHeadline" class="source-headline"></p>
   </section>
@@ -73,6 +73,7 @@
 
     <section class="card tile tile-holdings">
       <h2>Your holdings</h2>
+      <p class="hint">Reflects the filter above.</p>
       <div id="holdingsEmpty" class="empty" hidden>No holdings yet — add your first ETF or stock above.</div>
       <div class="table-scroll">
         <table id="holdingsTable" hidden>
@@ -86,7 +87,7 @@
 
     <section class="card tile tile-primary">
       <h2>Company look-through</h2>
-      <p class="hint">Reflects the Combined / ETF / Direct filter above.</p>
+      <p class="hint">Reflects the Combined / ETF / Stocks filter above.</p>
       <div id="lookthroughEmpty" class="empty" hidden>Add holdings to see your company-level exposure.</div>
       <div class="table-scroll">
         <table id="lookthroughTable" hidden>
@@ -100,7 +101,7 @@
 
     <section class="card tile tile-chart">
       <h2>Allocation</h2>
-      <p class="hint">Reflects the filter above.</p>
+      <p class="hint">One slice per ETF/stock you hold (by invested amount) — reflects the filter above.</p>
       <div id="chartEmpty" class="empty" hidden>Add holdings to see the allocation chart.</div>
       <div id="chartWrap" hidden>
         <canvas id="allocationChart" width="480" height="480"></canvas>
@@ -117,9 +118,16 @@
       </div>
     </section>
 
+    <section class="card tile tile-full tile-etf-detail" id="etfDetailTile">
+      <h2>Per-ETF holdings</h2>
+      <p class="hint">Only shown on the ETF tab. Country-wise groups each fund's itemized constituents by country; Top companies (indirect) shows Indirect € = your invested amount in the fund × that company's weight — separate from the pie above, never added to it.</p>
+      <div id="etfDetailEmpty" class="empty" hidden>Add an ETF holding to see its constituent breakdown.</div>
+      <div id="etfDetailBody"></div>
+    </section>
+
     <section class="card tile tile-breakdown tile-overall-country">
       <h2>Overall country split</h2>
-      <p class="hint">Direct + ETF combined, always — independent of the filter above.</p>
+      <p class="hint">Stocks + ETF combined, always — independent of the filter above.</p>
       <div id="overallCountryEmpty" class="empty" hidden>Add holdings to see your overall country split.</div>
       <div class="table-scroll">
         <table id="overallCountryTable" hidden>
@@ -132,7 +140,7 @@
     </section>
 
     <section class="card tile tile-divergence">
-      <h2>Direct vs ETF divergence</h2>
+      <h2>Stocks vs ETF divergence</h2>
       <div id="divergenceEmpty" class="empty" hidden></div>
       <div id="divergenceContent" hidden>
         <p class="subheading">Companies</p>
@@ -149,70 +157,44 @@
       </div>
     </section>
 
-    <section class="card tile tile-breakdown tile-country-etf">
-      <h2>Country exposure — ETFs</h2>
-      <div id="countryEtfEmpty" class="empty" hidden>Add an ETF holding to see its country-level exposure.</div>
+    <section class="card tile tile-full tile-breakdown tile-country-exposure">
+      <h2>Country exposure</h2>
+      <p class="hint">Reflects the Combined / ETF / Stocks filter above — % is of that tab's total.</p>
+      <div id="countryExposureEmpty" class="empty" hidden>Add holdings to see country-level exposure.</div>
       <div class="table-scroll">
-        <table id="countryEtfTable" hidden>
+        <table id="countryExposureTable" hidden>
           <thead>
             <tr><th>Country</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
           </thead>
-          <tbody id="countryEtfBody"></tbody>
+          <tbody id="countryExposureBody"></tbody>
         </table>
       </div>
     </section>
 
-    <section class="card tile tile-breakdown tile-country-stock">
-      <h2>Country exposure — Stocks</h2>
-      <div id="countryStockEmpty" class="empty" hidden>Add a direct stock holding to see its country-level exposure.</div>
+    <section class="card tile tile-full tile-breakdown tile-industry-exposure">
+      <h2>Industry exposure</h2>
+      <p class="hint">Reflects the Combined / ETF / Stocks filter above — % is of that tab's total. Click a row to see which holdings contribute.</p>
+      <div id="industryExposureEmpty" class="empty" hidden>Add holdings to see industry-level exposure.</div>
       <div class="table-scroll">
-        <table id="countryStockTable" hidden>
-          <thead>
-            <tr><th>Country</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
-          </thead>
-          <tbody id="countryStockBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card tile tile-breakdown tile-industry-etf">
-      <h2>Industry exposure — ETFs</h2>
-      <p class="hint">Click a row to see which holdings contribute.</p>
-      <div id="industryEtfEmpty" class="empty" hidden>Add an ETF holding to see its industry-level exposure.</div>
-      <div class="table-scroll">
-        <table id="industryEtfTable" hidden>
+        <table id="industryExposureTable" hidden>
           <thead>
             <tr><th>Industry</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
           </thead>
-          <tbody id="industryEtfBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card tile tile-breakdown tile-industry-stock">
-      <h2>Industry exposure — Stocks</h2>
-      <p class="hint">Click a row to see which holdings contribute.</p>
-      <div id="industryStockEmpty" class="empty" hidden>Add a direct stock holding to see its industry-level exposure.</div>
-      <div class="table-scroll">
-        <table id="industryStockTable" hidden>
-          <thead>
-            <tr><th>Industry</th><th>Exposure (€)</th><th>% of portfolio</th><th>Sources</th></tr>
-          </thead>
-          <tbody id="industryStockBody"></tbody>
+          <tbody id="industryExposureBody"></tbody>
         </table>
       </div>
     </section>
 
     <section class="card tile tile-breakdown tile-tree">
       <h2>Country → industry — ETFs</h2>
-      <p class="hint">Estimated cross-tab (assumes each fund's sector mix is even across its countries). Always ETF-only.</p>
+      <p class="hint">Uses each holding's own real country + sector — exact for itemized holdings; the un-itemized tail is a labelled estimate (see each ETF's data). Always ETF-only.</p>
       <div id="treeEtfEmpty" class="empty" hidden>Add an ETF holding to see this breakdown.</div>
       <div id="treeEtfBody" class="tree-scroll" hidden></div>
     </section>
 
     <section class="card tile tile-breakdown tile-tree">
-      <h2>Country → industry — Direct</h2>
-      <p class="hint">Exact — each stock has one country and one sector. Always direct-only.</p>
+      <h2>Country → industry — Stocks</h2>
+      <p class="hint">Exact — each stock has one country and one sector. Always stock-only.</p>
       <div id="treeStockEmpty" class="empty" hidden>Add a direct stock holding to see this breakdown.</div>
       <div id="treeStockBody" class="tree-scroll" hidden></div>
     </section>

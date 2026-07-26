@@ -5,31 +5,126 @@
   "asOf": "2026-05-31",
   "source": "justETF (justetf.com/en/etf-profile.html?isin=IE00BFMXXD54), top 10 holdings. Share classes of the same company (Alphabet A/C) are combined into one company row. SNAPSHOT — refresh from the issuer factsheet before relying on this.",
   "holdings": [
-    { "company": "Nvidia", "weight": 7.87 },
-    { "company": "Apple", "weight": 7.03 },
-    { "company": "Microsoft", "weight": 5.13 },
-    { "company": "Amazon", "weight": 4.06 },
-    { "company": "Alphabet", "weight": 6.10 },
-    { "company": "Broadcom", "weight": 3.25 },
-    { "company": "Meta Platforms", "weight": 2.12 },
-    { "company": "Tesla", "weight": 1.88 },
-    { "company": "Micron Technology", "weight": 1.68 }
+    {
+      "company": "Nvidia",
+      "weight": 7.87,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Apple",
+      "weight": 7.03,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Microsoft",
+      "weight": 5.13,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Amazon",
+      "weight": 4.06,
+      "country": "US",
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "company": "Alphabet",
+      "weight": 6.1,
+      "country": "US",
+      "sector": "Communication Services"
+    },
+    {
+      "company": "Broadcom",
+      "weight": 3.25,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Meta Platforms",
+      "weight": 2.12,
+      "country": "US",
+      "sector": "Communication Services"
+    },
+    {
+      "company": "Tesla",
+      "weight": 1.88,
+      "country": "US",
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "company": "Micron Technology",
+      "weight": 1.68,
+      "country": "US",
+      "sector": "Information Technology"
+    }
   ],
-  "allocationNote": "Country/sector allocation is an ILLUSTRATIVE SNAPSHOT, not live data — verify against the issuer factsheet (vanguard.com) before relying on it. Tracks the same index as CSPX, so the profile is effectively identical. Each breakdown sums to 100, so this fund is never left unclassified.",
-  "countryAllocation": [
-    { "country": "US", "weight": 100 }
+  "tail": {
+    "weight": 60.9,
+    "note": "Remaining ~490 S&P 500 constituents, not itemized individually. Same index as CSPX, so tail sector mix uses the same published composition (all US, single country).",
+    "split": [
+      {
+        "country": "US",
+        "sector": "Information Technology",
+        "weight": 7
+      },
+      {
+        "country": "US",
+        "sector": "Financials",
+        "weight": 13
+      },
+      {
+        "country": "US",
+        "sector": "Health Care",
+        "weight": 11
+      },
+      {
+        "country": "US",
+        "sector": "Consumer Discretionary",
+        "weight": 4.1
+      },
+      {
+        "country": "US",
+        "sector": "Communication Services",
+        "weight": 0.8
+      },
+      {
+        "country": "US",
+        "sector": "Industrials",
+        "weight": 8
+      },
+      {
+        "country": "US",
+        "sector": "Consumer Staples",
+        "weight": 6
+      },
+      {
+        "country": "US",
+        "sector": "Energy",
+        "weight": 4
+      },
+      {
+        "country": "US",
+        "sector": "Utilities",
+        "weight": 3
+      },
+      {
+        "country": "US",
+        "sector": "Materials",
+        "weight": 2
+      },
+      {
+        "country": "US",
+        "sector": "Real Estate",
+        "weight": 2
+      }
+    ]
+  },
+  "verify": [
+    "Top-10 holding weights against the Vanguard factsheet (vanguard.com)",
+    "Whether the fund still tracks 100% US"
   ],
-  "sectorAllocation": [
-    { "sector": "Information Technology", "weight": 32 },
-    { "sector": "Financials", "weight": 13 },
-    { "sector": "Health Care", "weight": 11 },
-    { "sector": "Consumer Discretionary", "weight": 10 },
-    { "sector": "Communication Services", "weight": 9 },
-    { "sector": "Industrials", "weight": 8 },
-    { "sector": "Consumer Staples", "weight": 6 },
-    { "sector": "Energy", "weight": 4 },
-    { "sector": "Utilities", "weight": 3 },
-    { "sector": "Materials", "weight": 2 },
-    { "sector": "Real Estate", "weight": 2 }
-  ]
+  "allocationNote": "Country and sector exposure below are computed directly from the per-company holdings + tail split above (a real joint dataset, not independent marginal breakdowns cross-multiplied) — a sector only ever appears under a country this fund actually holds. The itemized holdings above are real reported weights; the tail split is a clearly-labelled estimate for the un-itemized remainder — see \"verify\" for what to confirm against the issuer factsheet.",
+  "approxConstituents": 500
 }

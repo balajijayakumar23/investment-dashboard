@@ -102,6 +102,15 @@
   box-sizing: border-box;
 }
 
+/* Author `display` declarations (e.g. .card/.summary-card's `display: flex`)
+   otherwise beat the UA's default `[hidden] { display: none }` regardless of
+   specificity, since origin outranks specificity in the cascade - which
+   silently no-ops `el.hidden = true` on any element that also carries one of
+   those classes. Force it back to the platform's actual contract. */
+[hidden] {
+  display: none !important;
+}
+
 html {
   color-scheme: light dark;
 }
@@ -259,6 +268,13 @@ main {
   }
 }
 
+/* Always spans every column regardless of the current breakpoint's column
+   count (unlike .tile-primary/.tile-map/etc above, which are "wider" but
+   only truly full-width at the 2-column breakpoint). */
+.tile-full {
+  grid-column: 1 / -1;
+}
+
 @media (min-width: 1440px) {
   .dashboard-grid {
     grid-template-columns: repeat(4, 1fr);
@@ -336,6 +352,31 @@ main {
    so the row fits without needing the horizontal scroll above. */
 .tile-holdings table {
   font-size: 0.82rem;
+}
+
+/* Overall country split / Country exposure / Industry exposure (item 8):
+   same auto-size-instead-of-scroll treatment as Your Holdings above - these
+   are full-width tiles so there's no horizontal squeeze to guard against,
+   just the vertical max-height/scroll to lift. .scroll-capped (toggled in
+   JS past BREAKDOWN_SCROLL_CAP rows) reinstates a safety-net scroll. */
+.tile-overall-country .table-scroll,
+.tile-country-exposure .table-scroll,
+.tile-industry-exposure .table-scroll {
+  max-height: none;
+  overflow-y: visible;
+  overflow-x: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.tile-overall-country .table-scroll.scroll-capped,
+.tile-country-exposure .table-scroll.scroll-capped,
+.tile-industry-exposure .table-scroll.scroll-capped {
+  max-height: 640px;
+  overflow-y: auto;
+  overflow-x: auto;
+  margin: 0 calc(var(--card-padding) * -1) calc(var(--card-padding) * -1);
+  padding: 0 var(--card-padding) var(--card-padding);
 }
 
 .tile-holdings tbody td {
@@ -459,6 +500,82 @@ main {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* Per-ETF holdings tile (items 4/5): one block per held ETF, each with a
+   country-wise table and a top-companies table side by side. */
+.etf-detail-block {
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+
+.etf-detail-block:first-of-type {
+  padding-top: 4px;
+  border-top: none;
+}
+
+.etf-detail-block h3 {
+  margin: 0 0 2px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.etf-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-top: 10px;
+}
+
+@media (min-width: 800px) {
+  .etf-detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.etf-mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.etf-mini-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+
+.etf-mini-table th:last-child,
+.etf-mini-table td:last-child {
+  text-align: right;
+}
+
+.etf-mini-table tbody td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.etf-mini-table tr:last-child td {
+  border-bottom: none;
+}
+
+.country-group-header td {
+  padding-top: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: none !important;
+  text-align: left !important;
+}
+
+.etf-detail-block tr:first-child.country-group-header td {
+  padding-top: 6px;
 }
 
 .stat-list {

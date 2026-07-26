@@ -5,27 +5,102 @@
   "asOf": "2026-05-27",
   "source": "justETF (justetf.com/en/etf-profile.html?isin=LU1900066033), top 10 holdings. SNAPSHOT — refresh from the issuer factsheet before relying on this.",
   "holdings": [
-    { "company": "Nvidia", "weight": 22.40 },
-    { "company": "Taiwan Semiconductor Manufacturing (TSMC)", "weight": 13.03 },
-    { "company": "Broadcom", "weight": 11.89 },
-    { "company": "Micron Technology", "weight": 7.52 },
-    { "company": "SK Hynix", "weight": 5.89 },
-    { "company": "AMD", "weight": 5.80 },
-    { "company": "ASML Holding", "weight": 4.48 },
-    { "company": "Intel", "weight": 3.97 },
-    { "company": "Lam Research", "weight": 2.90 },
-    { "company": "Applied Materials", "weight": 2.58 }
+    {
+      "company": "Nvidia",
+      "weight": 22.4,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Taiwan Semiconductor Manufacturing (TSMC)",
+      "weight": 13.03,
+      "country": "TW",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Broadcom",
+      "weight": 11.89,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Micron Technology",
+      "weight": 7.52,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "SK Hynix",
+      "weight": 5.89,
+      "country": "KR",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "AMD",
+      "weight": 5.8,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "ASML Holding",
+      "weight": 4.48,
+      "country": "NL",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Intel",
+      "weight": 3.97,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Lam Research",
+      "weight": 2.9,
+      "country": "US",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Applied Materials",
+      "weight": 2.58,
+      "country": "US",
+      "sector": "Information Technology"
+    }
   ],
-  "allocationNote": "Country/sector allocation is an ILLUSTRATIVE SNAPSHOT, not live data — verify against the issuer factsheet (amundietf.com) before relying on it. 'XX' is a deliberate non-map pseudo-code for 'Other / diversified' (smaller country weights not itemized individually) — it's a real, labeled bucket, not an unclassified one; it just has no single country to paint on the map.",
-  "countryAllocation": [
-    { "country": "US", "weight": 55 },
-    { "country": "TW", "weight": 20 },
-    { "country": "NL", "weight": 8 },
-    { "country": "KR", "weight": 7 },
-    { "country": "JP", "weight": 5 },
-    { "country": "XX", "weight": 5 }
+  "tail": {
+    "weight": 19.5,
+    "note": "'XX' is a deliberate non-map pseudo-code for 'Other / diversified' (smaller country weights not itemized individually) — a real, labelled bucket, not an unclassified one. Every tail row's country is one the fund's own disclosed country split actually shows (never invented). Sector is 100% Information Technology fund-wide, so no cross-country sector ambiguity.",
+    "split": [
+      {
+        "country": "TW",
+        "sector": "Information Technology",
+        "weight": 6.3
+      },
+      {
+        "country": "NL",
+        "sector": "Information Technology",
+        "weight": 3.2
+      },
+      {
+        "country": "KR",
+        "sector": "Information Technology",
+        "weight": 1
+      },
+      {
+        "country": "JP",
+        "sector": "Information Technology",
+        "weight": 4.5
+      },
+      {
+        "country": "XX",
+        "sector": "Information Technology",
+        "weight": 4.5
+      }
+    ]
+  },
+  "verify": [
+    "Top-10 holding weights against the Amundi factsheet (amundietf.com)",
+    "The Japan (5%) and \"other\" (5%) country slices — issuer factsheet may name specific holdings there"
   ],
-  "sectorAllocation": [
-    { "sector": "Information Technology", "weight": 100 }
-  ]
+  "allocationNote": "Country and sector exposure below are computed directly from the per-company holdings + tail split above (a real joint dataset, not independent marginal breakdowns cross-multiplied) — a sector only ever appears under a country this fund actually holds. The itemized holdings above are real reported weights; the tail split is a clearly-labelled estimate for the un-itemized remainder — see \"verify\" for what to confirm against the issuer factsheet.",
+  "approxConstituents": 30
 }

@@ -5,37 +5,157 @@
   "asOf": "2026-06-30",
   "source": "stockanalysis.com/quote/nse/NIFTYBEES/holdings, top 15 holdings. SNAPSHOT — refresh from the issuer factsheet (nipponindiaim.com) before relying on this.",
   "holdings": [
-    { "company": "HDFC Bank", "weight": 11.14 },
-    { "company": "ICICI Bank", "weight": 8.98 },
-    { "company": "Reliance Industries", "weight": 7.97 },
-    { "company": "Bharti Airtel", "weight": 5.13 },
-    { "company": "Larsen & Toubro", "weight": 4.42 },
-    { "company": "State Bank of India", "weight": 3.87 },
-    { "company": "Axis Bank", "weight": 3.52 },
-    { "company": "Infosys", "weight": 3.20 },
-    { "company": "Kotak Mahindra Bank", "weight": 2.63 },
-    { "company": "ITC Limited", "weight": 2.52 },
-    { "company": "Mahindra & Mahindra", "weight": 2.50 },
-    { "company": "Bajaj Finance", "weight": 2.46 },
-    { "company": "Tata Consultancy Services", "weight": 1.89 },
-    { "company": "Sun Pharmaceutical Industries", "weight": 1.80 },
-    { "company": "Eternal", "weight": 1.74 }
+    {
+      "company": "HDFC Bank",
+      "weight": 11.14,
+      "country": "IN",
+      "sector": "Financials"
+    },
+    {
+      "company": "ICICI Bank",
+      "weight": 8.98,
+      "country": "IN",
+      "sector": "Financials"
+    },
+    {
+      "company": "Reliance Industries",
+      "weight": 7.97,
+      "country": "IN",
+      "sector": "Energy"
+    },
+    {
+      "company": "Bharti Airtel",
+      "weight": 5.13,
+      "country": "IN",
+      "sector": "Communication Services"
+    },
+    {
+      "company": "Larsen & Toubro",
+      "weight": 4.42,
+      "country": "IN",
+      "sector": "Industrials"
+    },
+    {
+      "company": "State Bank of India",
+      "weight": 3.87,
+      "country": "IN",
+      "sector": "Financials"
+    },
+    {
+      "company": "Axis Bank",
+      "weight": 3.52,
+      "country": "IN",
+      "sector": "Financials"
+    },
+    {
+      "company": "Infosys",
+      "weight": 3.2,
+      "country": "IN",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Kotak Mahindra Bank",
+      "weight": 2.63,
+      "country": "IN",
+      "sector": "Financials"
+    },
+    {
+      "company": "ITC Limited",
+      "weight": 2.52,
+      "country": "IN",
+      "sector": "Consumer Staples"
+    },
+    {
+      "company": "Mahindra & Mahindra",
+      "weight": 2.5,
+      "country": "IN",
+      "sector": "Consumer Discretionary"
+    },
+    {
+      "company": "Bajaj Finance",
+      "weight": 2.46,
+      "country": "IN",
+      "sector": "Financials"
+    },
+    {
+      "company": "Tata Consultancy Services",
+      "weight": 1.89,
+      "country": "IN",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "Sun Pharmaceutical Industries",
+      "weight": 1.8,
+      "country": "IN",
+      "sector": "Health Care"
+    },
+    {
+      "company": "Eternal",
+      "weight": 1.74,
+      "country": "IN",
+      "sector": "Consumer Discretionary"
+    }
   ],
-  "allocationNote": "Country/sector allocation is an ILLUSTRATIVE SNAPSHOT, not live data — verify against the issuer factsheet (nipponindiaim.com) before relying on it. Sector weights are approximate Nifty 50 composition, not an exact fund disclosure.",
-  "countryAllocation": [
-    { "country": "IN", "weight": 100 }
+  "tail": {
+    "weight": 36.1,
+    "note": "Remaining ~35 Nifty 50 constituents, not itemized individually. All India, single country, so tail sector mix uses the same approximate Nifty 50 sector composition with no cross-country ambiguity.",
+    "split": [
+      {
+        "country": "IN",
+        "sector": "Financials",
+        "weight": 2.3
+      },
+      {
+        "country": "IN",
+        "sector": "Information Technology",
+        "weight": 7.7
+      },
+      {
+        "country": "IN",
+        "sector": "Energy",
+        "weight": 2
+      },
+      {
+        "country": "IN",
+        "sector": "Consumer Discretionary",
+        "weight": 4.6
+      },
+      {
+        "country": "IN",
+        "sector": "Consumer Staples",
+        "weight": 5.3
+      },
+      {
+        "country": "IN",
+        "sector": "Industrials",
+        "weight": 1.5
+      },
+      {
+        "country": "IN",
+        "sector": "Health Care",
+        "weight": 3.1
+      },
+      {
+        "country": "IN",
+        "sector": "Materials",
+        "weight": 4.8
+      },
+      {
+        "country": "IN",
+        "sector": "Utilities",
+        "weight": 2.9
+      },
+      {
+        "country": "IN",
+        "sector": "Real Estate",
+        "weight": 1.9
+      }
+    ]
+  },
+  "verify": [
+    "Top-15 holding weights against the Nifty 50 factsheet (nipponindiaim.com)",
+    "Sector weights are approximate Nifty 50 composition, not an exact fund disclosure — verify against NSE sector classification"
   ],
-  "sectorAllocation": [
-    { "sector": "Financials", "weight": 35 },
-    { "sector": "Information Technology", "weight": 13 },
-    { "sector": "Energy", "weight": 10 },
-    { "sector": "Consumer Discretionary", "weight": 9 },
-    { "sector": "Consumer Staples", "weight": 8 },
-    { "sector": "Industrials", "weight": 6 },
-    { "sector": "Health Care", "weight": 5 },
-    { "sector": "Materials", "weight": 5 },
-    { "sector": "Communication Services", "weight": 4 },
-    { "sector": "Utilities", "weight": 3 },
-    { "sector": "Real Estate", "weight": 2 }
-  ]
+  "allocationNote": "Country and sector exposure below are computed directly from the per-company holdings + tail split above (a real joint dataset, not independent marginal breakdowns cross-multiplied) — a sector only ever appears under a country this fund actually holds. The itemized holdings above are real reported weights; the tail split is a clearly-labelled estimate for the un-itemized remainder — see \"verify\" for what to confirm against the issuer factsheet.",
+  "approxConstituents": 50
 }

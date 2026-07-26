@@ -5,40 +5,558 @@
   "asOf": "2026-05-29",
   "source": "justETF (justetf.com/en/etf-profile.html?isin=IE0006WW1TQ4), top 10 holdings. ISIN IE0006WW1TQ4. SNAPSHOT — refresh from the issuer factsheet before relying on this.",
   "holdings": [
-    { "company": "ASML Holding", "weight": 2.99 },
-    { "company": "HSBC Holdings", "weight": 1.32 },
-    { "company": "Royal Bank of Canada", "weight": 1.13 },
-    { "company": "Roche Holding", "weight": 1.13 },
-    { "company": "Novartis", "weight": 1.09 },
-    { "company": "AstraZeneca", "weight": 1.07 },
-    { "company": "Nestlé", "weight": 1.02 },
-    { "company": "Siemens", "weight": 0.95 },
-    { "company": "Shell", "weight": 0.90 },
-    { "company": "BHP Group", "weight": 0.89 }
+    {
+      "company": "ASML Holding",
+      "weight": 2.99,
+      "country": "NL",
+      "sector": "Information Technology"
+    },
+    {
+      "company": "HSBC Holdings",
+      "weight": 1.32,
+      "country": "GB",
+      "sector": "Financials"
+    },
+    {
+      "company": "Royal Bank of Canada",
+      "weight": 1.13,
+      "country": "CA",
+      "sector": "Financials"
+    },
+    {
+      "company": "Roche Holding",
+      "weight": 1.13,
+      "country": "CH",
+      "sector": "Health Care"
+    },
+    {
+      "company": "Novartis",
+      "weight": 1.09,
+      "country": "CH",
+      "sector": "Health Care"
+    },
+    {
+      "company": "AstraZeneca",
+      "weight": 1.07,
+      "country": "GB",
+      "sector": "Health Care"
+    },
+    {
+      "company": "Nestlé",
+      "weight": 1.02,
+      "country": "CH",
+      "sector": "Consumer Staples"
+    },
+    {
+      "company": "Siemens",
+      "weight": 0.95,
+      "country": "DE",
+      "sector": "Industrials"
+    },
+    {
+      "company": "Shell",
+      "weight": 0.9,
+      "country": "GB",
+      "sector": "Energy"
+    },
+    {
+      "company": "BHP Group",
+      "weight": 0.89,
+      "country": "AU",
+      "sector": "Materials"
+    }
   ],
-  "allocationNote": "Country/sector allocation is an ILLUSTRATIVE SNAPSHOT, not live data — verify against the issuer factsheet (etf.dws.com) before relying on it. 'XX' is 'Other developed markets, diversified' (smaller country weights not itemized individually) — a real, labeled bucket, not an unclassified one.",
-  "countryAllocation": [
-    { "country": "JP", "weight": 22 },
-    { "country": "GB", "weight": 14 },
-    { "country": "CA", "weight": 9 },
-    { "country": "FR", "weight": 8 },
-    { "country": "CH", "weight": 8 },
-    { "country": "DE", "weight": 7 },
-    { "country": "AU", "weight": 6 },
-    { "country": "NL", "weight": 4 },
-    { "country": "XX", "weight": 22 }
+  "tail": {
+    "weight": 86.9,
+    "note": "'XX' is 'Other developed markets, diversified' (smaller country weights not itemized individually) — a real, labelled bucket, not an unclassified one. Every tail row's country is one the fund's own disclosed country split shows; sector mix within each country's tail slice is an ESTIMATE using the fund's overall sector composition.",
+    "split": [
+      {
+        "country": "JP",
+        "sector": "Financials",
+        "weight": 4.4
+      },
+      {
+        "country": "JP",
+        "sector": "Industrials",
+        "weight": 3.5
+      },
+      {
+        "country": "JP",
+        "sector": "Health Care",
+        "weight": 1.9
+      },
+      {
+        "country": "JP",
+        "sector": "Consumer Discretionary",
+        "weight": 2.5
+      },
+      {
+        "country": "JP",
+        "sector": "Information Technology",
+        "weight": 1.5
+      },
+      {
+        "country": "JP",
+        "sector": "Consumer Staples",
+        "weight": 2
+      },
+      {
+        "country": "JP",
+        "sector": "Materials",
+        "weight": 1.5
+      },
+      {
+        "country": "JP",
+        "sector": "Communication Services",
+        "weight": 1.5
+      },
+      {
+        "country": "JP",
+        "sector": "Energy",
+        "weight": 1
+      },
+      {
+        "country": "JP",
+        "sector": "Utilities",
+        "weight": 1
+      },
+      {
+        "country": "JP",
+        "sector": "Real Estate",
+        "weight": 1
+      },
+      {
+        "country": "GB",
+        "sector": "Financials",
+        "weight": 2.1
+      },
+      {
+        "country": "GB",
+        "sector": "Industrials",
+        "weight": 1.7
+      },
+      {
+        "country": "GB",
+        "sector": "Health Care",
+        "weight": 0.9
+      },
+      {
+        "country": "GB",
+        "sector": "Consumer Discretionary",
+        "weight": 1.2
+      },
+      {
+        "country": "GB",
+        "sector": "Information Technology",
+        "weight": 0.7
+      },
+      {
+        "country": "GB",
+        "sector": "Consumer Staples",
+        "weight": 1
+      },
+      {
+        "country": "GB",
+        "sector": "Materials",
+        "weight": 0.7
+      },
+      {
+        "country": "GB",
+        "sector": "Communication Services",
+        "weight": 0.7
+      },
+      {
+        "country": "GB",
+        "sector": "Energy",
+        "weight": 0.5
+      },
+      {
+        "country": "GB",
+        "sector": "Utilities",
+        "weight": 0.5
+      },
+      {
+        "country": "GB",
+        "sector": "Real Estate",
+        "weight": 0.5
+      },
+      {
+        "country": "CA",
+        "sector": "Financials",
+        "weight": 1.6
+      },
+      {
+        "country": "CA",
+        "sector": "Industrials",
+        "weight": 1.3
+      },
+      {
+        "country": "CA",
+        "sector": "Health Care",
+        "weight": 0.7
+      },
+      {
+        "country": "CA",
+        "sector": "Consumer Discretionary",
+        "weight": 0.9
+      },
+      {
+        "country": "CA",
+        "sector": "Information Technology",
+        "weight": 0.5
+      },
+      {
+        "country": "CA",
+        "sector": "Consumer Staples",
+        "weight": 0.7
+      },
+      {
+        "country": "CA",
+        "sector": "Materials",
+        "weight": 0.5
+      },
+      {
+        "country": "CA",
+        "sector": "Communication Services",
+        "weight": 0.5
+      },
+      {
+        "country": "CA",
+        "sector": "Energy",
+        "weight": 0.4
+      },
+      {
+        "country": "CA",
+        "sector": "Utilities",
+        "weight": 0.4
+      },
+      {
+        "country": "CA",
+        "sector": "Real Estate",
+        "weight": 0.4
+      },
+      {
+        "country": "FR",
+        "sector": "Financials",
+        "weight": 1.6
+      },
+      {
+        "country": "FR",
+        "sector": "Industrials",
+        "weight": 1.3
+      },
+      {
+        "country": "FR",
+        "sector": "Health Care",
+        "weight": 0.7
+      },
+      {
+        "country": "FR",
+        "sector": "Consumer Discretionary",
+        "weight": 0.9
+      },
+      {
+        "country": "FR",
+        "sector": "Information Technology",
+        "weight": 0.5
+      },
+      {
+        "country": "FR",
+        "sector": "Consumer Staples",
+        "weight": 0.7
+      },
+      {
+        "country": "FR",
+        "sector": "Materials",
+        "weight": 0.6
+      },
+      {
+        "country": "FR",
+        "sector": "Communication Services",
+        "weight": 0.5
+      },
+      {
+        "country": "FR",
+        "sector": "Energy",
+        "weight": 0.4
+      },
+      {
+        "country": "FR",
+        "sector": "Utilities",
+        "weight": 0.4
+      },
+      {
+        "country": "FR",
+        "sector": "Real Estate",
+        "weight": 0.4
+      },
+      {
+        "country": "CH",
+        "sector": "Financials",
+        "weight": 1
+      },
+      {
+        "country": "CH",
+        "sector": "Industrials",
+        "weight": 0.8
+      },
+      {
+        "country": "CH",
+        "sector": "Health Care",
+        "weight": 0.4
+      },
+      {
+        "country": "CH",
+        "sector": "Consumer Discretionary",
+        "weight": 0.5
+      },
+      {
+        "country": "CH",
+        "sector": "Information Technology",
+        "weight": 0.3
+      },
+      {
+        "country": "CH",
+        "sector": "Consumer Staples",
+        "weight": 0.4
+      },
+      {
+        "country": "CH",
+        "sector": "Materials",
+        "weight": 0.3
+      },
+      {
+        "country": "CH",
+        "sector": "Communication Services",
+        "weight": 0.3
+      },
+      {
+        "country": "CH",
+        "sector": "Energy",
+        "weight": 0.2
+      },
+      {
+        "country": "CH",
+        "sector": "Utilities",
+        "weight": 0.2
+      },
+      {
+        "country": "CH",
+        "sector": "Real Estate",
+        "weight": 0.2
+      },
+      {
+        "country": "DE",
+        "sector": "Financials",
+        "weight": 1.2
+      },
+      {
+        "country": "DE",
+        "sector": "Industrials",
+        "weight": 1
+      },
+      {
+        "country": "DE",
+        "sector": "Health Care",
+        "weight": 0.5
+      },
+      {
+        "country": "DE",
+        "sector": "Consumer Discretionary",
+        "weight": 0.7
+      },
+      {
+        "country": "DE",
+        "sector": "Information Technology",
+        "weight": 0.4
+      },
+      {
+        "country": "DE",
+        "sector": "Consumer Staples",
+        "weight": 0.6
+      },
+      {
+        "country": "DE",
+        "sector": "Materials",
+        "weight": 0.4
+      },
+      {
+        "country": "DE",
+        "sector": "Communication Services",
+        "weight": 0.4
+      },
+      {
+        "country": "DE",
+        "sector": "Energy",
+        "weight": 0.3
+      },
+      {
+        "country": "DE",
+        "sector": "Utilities",
+        "weight": 0.3
+      },
+      {
+        "country": "DE",
+        "sector": "Real Estate",
+        "weight": 0.3
+      },
+      {
+        "country": "AU",
+        "sector": "Financials",
+        "weight": 1
+      },
+      {
+        "country": "AU",
+        "sector": "Industrials",
+        "weight": 0.8
+      },
+      {
+        "country": "AU",
+        "sector": "Health Care",
+        "weight": 0.5
+      },
+      {
+        "country": "AU",
+        "sector": "Consumer Discretionary",
+        "weight": 0.6
+      },
+      {
+        "country": "AU",
+        "sector": "Information Technology",
+        "weight": 0.4
+      },
+      {
+        "country": "AU",
+        "sector": "Consumer Staples",
+        "weight": 0.5
+      },
+      {
+        "country": "AU",
+        "sector": "Materials",
+        "weight": 0.4
+      },
+      {
+        "country": "AU",
+        "sector": "Communication Services",
+        "weight": 0.4
+      },
+      {
+        "country": "AU",
+        "sector": "Energy",
+        "weight": 0.2
+      },
+      {
+        "country": "AU",
+        "sector": "Utilities",
+        "weight": 0.2
+      },
+      {
+        "country": "AU",
+        "sector": "Real Estate",
+        "weight": 0.2
+      },
+      {
+        "country": "NL",
+        "sector": "Financials",
+        "weight": 0.2
+      },
+      {
+        "country": "NL",
+        "sector": "Industrials",
+        "weight": 0.2
+      },
+      {
+        "country": "NL",
+        "sector": "Health Care",
+        "weight": 0.1
+      },
+      {
+        "country": "NL",
+        "sector": "Consumer Discretionary",
+        "weight": 0.1
+      },
+      {
+        "country": "NL",
+        "sector": "Information Technology",
+        "weight": 0.1
+      },
+      {
+        "country": "NL",
+        "sector": "Consumer Staples",
+        "weight": 0.1
+      },
+      {
+        "country": "NL",
+        "sector": "Materials",
+        "weight": 0.1
+      },
+      {
+        "country": "NL",
+        "sector": "Communication Services",
+        "weight": 0.1
+      },
+      {
+        "country": "XX",
+        "sector": "Financials",
+        "weight": 4.4
+      },
+      {
+        "country": "XX",
+        "sector": "Industrials",
+        "weight": 3.5
+      },
+      {
+        "country": "XX",
+        "sector": "Health Care",
+        "weight": 1.9
+      },
+      {
+        "country": "XX",
+        "sector": "Consumer Discretionary",
+        "weight": 2.5
+      },
+      {
+        "country": "XX",
+        "sector": "Information Technology",
+        "weight": 1.5
+      },
+      {
+        "country": "XX",
+        "sector": "Consumer Staples",
+        "weight": 2
+      },
+      {
+        "country": "XX",
+        "sector": "Materials",
+        "weight": 1.5
+      },
+      {
+        "country": "XX",
+        "sector": "Communication Services",
+        "weight": 1.5
+      },
+      {
+        "country": "XX",
+        "sector": "Energy",
+        "weight": 1
+      },
+      {
+        "country": "XX",
+        "sector": "Utilities",
+        "weight": 1
+      },
+      {
+        "country": "XX",
+        "sector": "Real Estate",
+        "weight": 1
+      }
+    ]
+  },
+  "verify": [
+    "Top-10 holding weights against the DWS/Xtrackers factsheet (etf.dws.com)",
+    "Japan (22%) has no itemized holdings here at all — entirely tail-estimated; verify against factsheet for actual top Japanese constituents",
+    "Tail sector mix per country is an even-split ESTIMATE using the fund-wide sector composition, not per-country published data"
   ],
-  "sectorAllocation": [
-    { "sector": "Financials", "weight": 20 },
-    { "sector": "Industrials", "weight": 15 },
-    { "sector": "Health Care", "weight": 11 },
-    { "sector": "Consumer Discretionary", "weight": 10 },
-    { "sector": "Information Technology", "weight": 9 },
-    { "sector": "Consumer Staples", "weight": 9 },
-    { "sector": "Materials", "weight": 7 },
-    { "sector": "Communication Services", "weight": 6 },
-    { "sector": "Energy", "weight": 5 },
-    { "sector": "Utilities", "weight": 4 },
-    { "sector": "Real Estate", "weight": 4 }
-  ]
+  "allocationNote": "Country and sector exposure below are computed directly from the per-company holdings + tail split above (a real joint dataset, not independent marginal breakdowns cross-multiplied) — a sector only ever appears under a country this fund actually holds. The itemized holdings above are real reported weights; the tail split is a clearly-labelled estimate for the un-itemized remainder — see \"verify\" for what to confirm against the issuer factsheet.",
+  "approxConstituents": 800
 }

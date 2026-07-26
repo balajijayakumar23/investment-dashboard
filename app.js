@@ -18,15 +18,19 @@
  *   5. RENDER       - DOM + chart + map output.
  *   6. MAIN         - wiring: forms, edit/delete, toggle, snapshots, boot.
  *
- * Data model note (why "Unclassified" never appears): company-level
- * look-through (the big table) still uses a per-company country/industry
- * *lookup*, which can legitimately miss an entry (e.g. a residual "remaining
- * holdings" bucket) - but that only affects the hover-highlight nicety on
- * that table, nothing else. Country/industry EXPOSURE (breakdown tiles,
- * trees, map, divergence, snapshots) instead comes from each ETF's own
- * countryAllocation/sectorAllocation lists (which sum to 100 by
- * construction) and each stock's own country/sector tag - so every euro
- * always resolves to a real, or explicitly-labelled, bucket.
+ * Data model note (why "Unclassified" never appears, and why country x
+ * industry is correct rather than estimated-everywhere): each ETF's own
+ * holdings data is now a JOINT per-company dataset - every itemized holding
+ * carries its OWN real {company, weight, country, sector}, and the
+ * un-itemized remainder ("tail") is a separate, clearly-labelled joint
+ * {country, sector, weight} estimate constrained to countries the fund
+ * actually discloses holding (see each data/etf-holdings/<ticker>.json's
+ * "tail"/"verify" fields). Country and industry EXPOSURE (breakdown tiles,
+ * trees, map, divergence, snapshots) is derived by SUMMING this real joint
+ * data, never by cross-multiplying independent country% and sector%
+ * marginals - so a sector can never appear under a country the fund doesn't
+ * hold. Each stock's own country/sector tag is likewise exact. Every euro
+ * always resolves to a real, or explicitly-labelled-estimate, bucket.
  * ===================================================================== */
 
 
@@ -73,68 +77,6 @@ const STOCK_NAME_MAP = {
   NVO: 'Novo Nordisk',
   SIE: 'Siemens',
   ITC: 'ITC Limited',
-};
-
-// Company display name -> ISO 3166-1 alpha-2 country code. Used ONLY for the
-// company look-through table's hover-highlight-the-map nicety - a miss here
-// just means that one row doesn't highlight a country on hover, nothing more
-// (real country EXPOSURE totals never depend on this map - see STOCK_COUNTRY
-// and each ETF's own countryAllocation below).
-const COMPANY_COUNTRY = {
-  Apple: 'US',
-  Microsoft: 'US',
-  Nvidia: 'US',
-  Amazon: 'US',
-  Alphabet: 'US',
-  'Meta Platforms': 'US',
-  Broadcom: 'US',
-  'Berkshire Hathaway': 'US',
-  Tesla: 'US',
-  'JPMorgan Chase': 'US',
-  'Eli Lilly': 'US',
-  Visa: 'US',
-  'UnitedHealth Group': 'US',
-  ExxonMobil: 'US',
-  Netflix: 'US',
-  'Micron Technology': 'US',
-  AMD: 'US',
-  Intel: 'US',
-  'Lam Research': 'US',
-  'Applied Materials': 'US',
-  'Taiwan Semiconductor Manufacturing (TSMC)': 'TW',
-  MediaTek: 'TW',
-  'Delta Electronics': 'TW',
-  'Hon Hai Precision Industry': 'TW',
-  'SK Hynix': 'KR',
-  'Samsung Electronics': 'KR',
-  'Samsung Electro-Mechanics': 'KR',
-  'ASML Holding': 'NL',
-  'HDFC Bank': 'IN',
-  'ICICI Bank': 'IN',
-  'Reliance Industries': 'IN',
-  'Bharti Airtel': 'IN',
-  'Larsen & Toubro': 'IN',
-  'State Bank of India': 'IN',
-  'Axis Bank': 'IN',
-  Infosys: 'IN',
-  'Kotak Mahindra Bank': 'IN',
-  'ITC Limited': 'IN',
-  'Mahindra & Mahindra': 'IN',
-  'Bajaj Finance': 'IN',
-  'Tata Consultancy Services': 'IN',
-  'Sun Pharmaceutical Industries': 'IN',
-  Eternal: 'IN',
-  'HSBC Holdings': 'GB',
-  AstraZeneca: 'GB',
-  Shell: 'GB',
-  'Royal Bank of Canada': 'CA',
-  'Roche Holding': 'CH',
-  Novartis: 'CH',
-  'Nestlé': 'CH',
-  Siemens: 'DE',
-  'BHP Group': 'AU',
-  'Höegh Autoliners': 'NO',
-  'Novo Nordisk': 'DK',
 };
 
 // Direct-stock ticker -> real country of domicile. Every ticker in
@@ -326,60 +268,67 @@ function fetchEtfFile(tickerUpper) {
   return promise;
 }
 
+// Itemized per-company holdings, each with its OWN real country + sector
+// (the joint data item 1 requires - no more independent marginal lookup).
 function extractHoldings(json) {
   if (!json || !Array.isArray(json.holdings)) return null;
   return json.holdings
-    .filter((h) => h && typeof h.company === 'string' && Number.isFinite(Number(h.weight)))
-    .map((h) => ({ company: h.company.trim(), weight: Number(h.weight) }));
+    .filter((h) => h && typeof h.company === 'string' && Number.isFinite(Number(h.weight))
+      && typeof h.country === 'string' && typeof h.sector === 'string')
+    .map((h) => ({ company: h.company.trim(), weight: Number(h.weight), country: h.country, sector: h.sector }));
 }
 
-// field: 'countryAllocation' | 'sectorAllocation'; key: 'country' | 'sector'.
-function extractAllocation(json, field, key) {
-  if (!json || !Array.isArray(json[field])) return null;
-  return json[field]
-    .filter((r) => r && typeof r[key] === 'string' && Number.isFinite(Number(r.weight)))
-    .map((r) => ({ [key]: r[key], weight: Number(r.weight) }));
+// The un-itemized remainder's joint (country, sector, weight) estimate -
+// see each JSON's tail.note/verify for how it was derived and what to
+// confirm. Every row's country is one the fund's own itemized holdings or
+// the tail itself actually discloses - never invented.
+function extractTail(json) {
+  if (!json || !json.tail || !Array.isArray(json.tail.split)) return [];
+  return json.tail.split
+    .filter((r) => r && typeof r.country === 'string' && typeof r.sector === 'string' && Number.isFinite(Number(r.weight)))
+    .map((r) => ({ country: r.country, sector: r.sector, weight: Number(r.weight) }));
 }
 
 // Pads a partial/missing company holdings list up to 100% with a
 // clearly-labelled residual bucket, so exposure totals always match the
-// amount invested. (Company-level only - country/sector allocation below
-// is already complete by construction, so it never needs this.)
+// amount invested. (Company-level look-through table only - the joint
+// country/sector data below carries the tail's own real split already, so
+// it never needs this.)
 function padToFull(components, tickerUpper, tolerance = 0.5) {
   const sum = components.reduce((s, c) => s + c.weight, 0);
   const remainder = 100 - sum;
   if (remainder > tolerance) {
-    return [...components, { company: `${tickerUpper} — remaining holdings (not itemized)`, weight: remainder }];
+    return [...components, { company: `${tickerUpper} — remaining holdings (not itemized)`, weight: remainder, country: null, sector: null }];
   }
   return components;
 }
 
 // Resolves one user holding into {company, weight, country}[] for the
-// COMPANY look-through table only. `country` here is best-effort (via
-// COMPANY_COUNTRY) and only powers the table's hover-highlight nicety.
+// COMPANY look-through table. For an ETF, country now comes straight from
+// the holding's own real per-company data (not a best-effort lookup).
 async function resolveComponents(tickerUpper, type) {
-  const withCountry = (company, weight) => ({ company, weight, country: COMPANY_COUNTRY[company] || null });
-
   if (type === 'Stock') {
     const company = STOCK_NAME_MAP[tickerUpper] || tickerUpper;
-    return [withCountry(company, 100)];
+    return [{ company, weight: 100, country: STOCK_COUNTRY[tickerUpper] || null }];
   }
 
   const json = await fetchEtfFile(tickerUpper);
   const raw = extractHoldings(json);
   if (!raw || raw.length === 0) {
-    return [withCountry(`${tickerUpper} — no holdings data available`, 100)];
+    return [{ company: `${tickerUpper} — no holdings data available`, weight: 100, country: null }];
   }
-  return padToFull(raw, tickerUpper).map((c) => withCountry(c.company, c.weight));
+  return padToFull(raw, tickerUpper).map((c) => ({ company: c.company, weight: c.weight, country: c.country }));
 }
 
-// Resolves one user holding into COMPLETE country and sector allocations
-// (each summing to 100) for all country/industry exposure math - breakdown
-// tiles, trees, the map, divergence, and snapshots. For an ETF this is the
-// fund's own countryAllocation/sectorAllocation (real fund-level data, not
-// a per-company guess). For a stock it's that stock's own tag. Either way
-// there is no gap: an unregistered ticker gets a specific, actionable
-// "<TICKER> (x not set)" label instead of a generic "Unclassified" bucket.
+// Resolves one user holding into a real JOINT {country, sector, weight}[]
+// (countryIndustryJoint) plus its two marginals (countryComponents /
+// industryComponents, each summing to 100, for the existing per-field
+// aggregation helpers). For an ETF the joint is the fund's own itemized
+// holdings + its labelled tail split (see data/etf-holdings/<ticker>.json) -
+// a sector can only ever appear paired with a country that row's own data
+// says it's actually in, never an independent cross-multiply. For a stock
+// it's that stock's own exact tag. An unregistered ticker gets a specific,
+// actionable "<TICKER> (x not set)" label instead of a generic "Unclassified".
 async function resolveAllocationComponents(tickerUpper, type) {
   if (type === 'Stock') {
     const country = STOCK_COUNTRY[tickerUpper] || `${tickerUpper} (country not set)`;
@@ -387,21 +336,55 @@ async function resolveAllocationComponents(tickerUpper, type) {
     return {
       countryComponents: [{ country, weight: 100 }],
       industryComponents: [{ industry, weight: 100 }],
+      countryIndustryJoint: [{ country, industry, weight: 100 }],
     };
   }
 
   const json = await fetchEtfFile(tickerUpper);
-  const rawCountry = extractAllocation(json, 'countryAllocation', 'country');
-  const rawIndustry = extractAllocation(json, 'sectorAllocation', 'sector');
+  const holdings = extractHoldings(json);
+  const tail = extractTail(json);
+
+  if (!holdings || holdings.length === 0) {
+    const country = `${tickerUpper} (country not set)`;
+    const industry = `${tickerUpper} (sector not set)`;
+    return {
+      countryComponents: [{ country, weight: 100 }],
+      industryComponents: [{ industry, weight: 100 }],
+      countryIndustryJoint: [{ country, industry, weight: 100 }],
+    };
+  }
+
+  const joint = [
+    ...holdings.map((h) => ({ country: h.country, industry: h.sector, weight: h.weight })),
+    ...tail.map((t) => ({ country: t.country, industry: t.sector, weight: t.weight })),
+  ];
+
+  const countryMap = new Map();
+  const industryMap = new Map();
+  joint.forEach((r) => {
+    countryMap.set(r.country, (countryMap.get(r.country) || 0) + r.weight);
+    industryMap.set(r.industry, (industryMap.get(r.industry) || 0) + r.weight);
+  });
 
   return {
-    countryComponents: rawCountry && rawCountry.length ? rawCountry : [{ country: `${tickerUpper} (country not set)`, weight: 100 }],
-    // rawIndustry entries are shaped {sector, weight} (matching the JSON's
-    // own field name) - rename to {industry, weight} so they match the
-    // 'industry' key every aggregation/tree function downstream expects.
-    industryComponents: rawIndustry && rawIndustry.length
-      ? rawIndustry.map((r) => ({ industry: r.sector, weight: r.weight }))
-      : [{ industry: `${tickerUpper} (sector not set)`, weight: 100 }],
+    countryComponents: Array.from(countryMap.entries()).map(([country, weight]) => ({ country, weight })),
+    industryComponents: Array.from(industryMap.entries()).map(([industry, weight]) => ({ industry, weight })),
+    countryIndustryJoint: joint,
+  };
+}
+
+// Full itemized company list for one held ETF, sorted by weight desc, for
+// the per-ETF "country-wise holdings" and "top companies (indirect)" tables
+// (items 4/5) - kept separate from resolveComponents (which pads with a
+// residual row for the look-through table) since these two tables show only
+// the REAL itemized rows, never a synthetic remainder line.
+async function resolveEtfHoldingsDetail(tickerUpper) {
+  const json = await fetchEtfFile(tickerUpper);
+  const holdings = extractHoldings(json);
+  if (!holdings) return null;
+  return {
+    holdings: [...holdings].sort((a, b) => b.weight - a.weight),
+    approxConstituents: Number.isFinite(Number(json.approxConstituents)) ? Number(json.approxConstituents) : null,
   };
 }
 
@@ -467,26 +450,23 @@ function aggregateByIndustry(sources) {
   return aggregateByField(sources, 'industryComponents', 'industry');
 }
 
-// Nested Country -> Industry breakdown for the accordion trees. For a stock
-// (single country + single sector, each 100%) this is exact. For an ETF,
-// country% and sector% are each independently-complete MARGINAL breakdowns
-// (issuers publish these separately, not as a joint table), so the cross-tab
-// here is an ESTIMATE that assumes the fund's sector mix is the same in
-// every country it holds - surfaced to the user as approximate, never
-// presented as exact fund data.
+// Nested Country -> Industry breakdown for the accordion trees, built
+// directly from each source's real countryIndustryJoint rows (see
+// resolveAllocationComponents) - a stock's single {country, sector} tag, or
+// an ETF's own itemized per-company country+sector plus its labelled tail
+// split. An industry can only ever land under a country that same row's
+// data actually paired it with, never an independent country% x sector%
+// cross-multiply.
 function buildCountryIndustryTree(sources) {
   const tree = new Map(); // country -> Map(industry -> exposureEUR)
 
   for (const src of sources) {
-    const countryComps = src.countryComponents || [];
-    const industryComps = src.industryComponents || [];
-    for (const cc of countryComps) {
-      if (!tree.has(cc.country)) tree.set(cc.country, new Map());
-      const industryMap = tree.get(cc.country);
-      for (const ic of industryComps) {
-        const exposureEUR = src.amountEUR * (cc.weight / 100) * (ic.weight / 100);
-        industryMap.set(ic.industry, (industryMap.get(ic.industry) || 0) + exposureEUR);
-      }
+    const joint = src.countryIndustryJoint || [];
+    for (const row of joint) {
+      if (!tree.has(row.country)) tree.set(row.country, new Map());
+      const industryMap = tree.get(row.country);
+      const exposureEUR = src.amountEUR * (row.weight / 100);
+      industryMap.set(row.industry, (industryMap.get(row.industry) || 0) + exposureEUR);
     }
   }
 
@@ -628,7 +608,7 @@ function renderTotal(totalInvested) {
 
 const HOLDINGS_SCROLL_CAP = 30; // beyond this many rows, re-cap height + scroll as a safety net
 
-function renderHoldingsTable(holdings) {
+function renderHoldingsTable(holdings, emptyMessage) {
   const empty = document.getElementById('holdingsEmpty');
   const table = document.getElementById('holdingsTable');
   const body = document.getElementById('holdingsBody');
@@ -639,6 +619,7 @@ function renderHoldingsTable(holdings) {
 
   if (holdings.length === 0) {
     empty.hidden = false;
+    empty.textContent = emptyMessage || 'No holdings yet — add your first ETF or stock above.';
     table.hidden = true;
     return;
   }
@@ -743,12 +724,16 @@ function palette(n) {
   return colors;
 }
 
-function renderChart(aggregated) {
+// Pie units are MY HOLDINGS (one slice per ETF/stock, by invested amount) -
+// never underlying look-through companies. `units` is built from the same
+// tab-filtered source list as everything else (see buildPieUnits), so
+// percentages always reconcile with the tab's own total.
+function renderChart(units) {
   const empty = document.getElementById('chartEmpty');
   const wrap = document.getElementById('chartWrap');
   const canvas = document.getElementById('allocationChart');
 
-  if (aggregated.length === 0) {
+  if (units.length === 0) {
     empty.hidden = false;
     wrap.hidden = true;
     if (chartInstance) {
@@ -760,10 +745,10 @@ function renderChart(aggregated) {
   empty.hidden = true;
   wrap.hidden = false;
 
-  const labels = aggregated.map((a) => a.company);
-  const data = aggregated.map((a) => a.exposureEUR);
+  const labels = units.map((u) => u.label);
+  const data = units.map((u) => u.amountEUR);
   const total = data.reduce((s, v) => s + v, 0);
-  const colors = palette(aggregated.length);
+  const colors = palette(units.length);
 
   const textSecondary = cssVar('--text-secondary', '#4b5157');
   const cardBg = cssVar('--card-bg', '#ffffff');
@@ -776,8 +761,14 @@ function renderChart(aggregated) {
     },
     options: {
       responsive: true,
+      // Bottom (not 'right') so the legend wraps across the tile's full
+      // width instead of stacking in a narrow side column that clips or
+      // spills long labels past the tile's edge.
       plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, color: textSecondary } },
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 12, font: { size: 11 }, color: textSecondary, padding: 10, usePointStyle: true },
+        },
         tooltip: {
           backgroundColor: cardBg,
           titleColor: cssVar('--text', '#16181b'),
@@ -806,22 +797,179 @@ function renderChart(aggregated) {
   }
 }
 
+// --- New: per-ETF holdings detail (country-wise + top companies) ------
+
+// Company | Weight %, grouped under country headers, sorted by each
+// country's total weight desc, companies within a country sorted by
+// weight desc. Uses the ETF's own itemized per-company country (item 4).
+function buildCountryWiseTable(holdings) {
+  const table = document.createElement('table');
+  table.className = 'etf-mini-table';
+  table.innerHTML = '<thead><tr><th>Company</th><th>Weight %</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+
+  const byCountry = new Map();
+  holdings.forEach((h) => {
+    if (!byCountry.has(h.country)) byCountry.set(h.country, []);
+    byCountry.get(h.country).push(h);
+  });
+
+  Array.from(byCountry.entries())
+    .map(([country, rows]) => ({ country, rows, total: rows.reduce((s, r) => s + r.weight, 0) }))
+    .sort((a, b) => b.total - a.total)
+    .forEach(({ country, rows }) => {
+      const headerTr = document.createElement('tr');
+      headerTr.className = 'country-group-header';
+      const headerTd = document.createElement('td');
+      headerTd.colSpan = 2;
+      headerTd.textContent = COUNTRY_NAMES[country] || country;
+      headerTr.appendChild(headerTd);
+      tbody.appendChild(headerTr);
+
+      [...rows].sort((a, b) => b.weight - a.weight).forEach((h) => {
+        const tr = document.createElement('tr');
+        const companyTd = document.createElement('td');
+        companyTd.textContent = h.company;
+        const weightTd = document.createElement('td');
+        weightTd.className = 'eur-value';
+        weightTd.textContent = `${pctFormatter.format(h.weight)}%`;
+        tr.appendChild(companyTd);
+        tr.appendChild(weightTd);
+        tbody.appendChild(tr);
+      });
+    });
+
+  table.appendChild(tbody);
+  return table;
+}
+
+// Company | Weight % | Indirect (€) - Indirect € = my invested amount in
+// this ETF x that company's weight. Sorted by weight desc (item 5). Never
+// feeds the pie chart - this is a separate, standalone table.
+function buildTopCompaniesTable(holdings, amountEUR) {
+  const table = document.createElement('table');
+  table.className = 'etf-mini-table';
+  table.innerHTML = '<thead><tr><th>Company</th><th>Weight %</th><th>Indirect (€)</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+
+  holdings.forEach((h) => {
+    const tr = document.createElement('tr');
+    const companyTd = document.createElement('td');
+    companyTd.textContent = h.company;
+    const weightTd = document.createElement('td');
+    weightTd.className = 'eur-value';
+    weightTd.textContent = `${pctFormatter.format(h.weight)}%`;
+    const indirectTd = document.createElement('td');
+    indirectTd.className = 'eur-value';
+    setMaskable(indirectTd, formatEUR(amountEUR * (h.weight / 100)));
+    tr.appendChild(companyTd);
+    tr.appendChild(weightTd);
+    tr.appendChild(indirectTd);
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  return table;
+}
+
+// ETF-tab-only tile: one block per held ETF, each with the two tables above.
+function renderEtfDetail() {
+  const tile = document.getElementById('etfDetailTile');
+
+  if (sourceFilter !== 'ETF') {
+    tile.hidden = true;
+    return;
+  }
+  tile.hidden = false;
+
+  const empty = document.getElementById('etfDetailEmpty');
+  const body = document.getElementById('etfDetailBody');
+  body.innerHTML = '';
+
+  const heldEtfs = lastHoldings.filter((h) => h.type === 'ETF');
+  if (heldEtfs.length === 0) {
+    empty.hidden = false;
+    body.hidden = true;
+    return;
+  }
+  empty.hidden = true;
+  body.hidden = false;
+
+  heldEtfs.forEach((h) => {
+    const detail = lastEtfHoldingsDetail.get(h.ticker);
+    const block = document.createElement('div');
+    block.className = 'etf-detail-block';
+
+    const heading = document.createElement('h3');
+    heading.append(`${h.ticker} — `);
+    const eurSpan = document.createElement('span');
+    setMaskable(eurSpan, formatEUR(h.amountEUR));
+    heading.appendChild(eurSpan);
+    heading.append(' invested');
+    block.appendChild(heading);
+
+    if (!detail || detail.holdings.length === 0) {
+      const note = document.createElement('p');
+      note.className = 'empty';
+      note.textContent = 'No holdings data available for this ETF.';
+      block.appendChild(note);
+      body.appendChild(block);
+      return;
+    }
+
+    const { holdings, approxConstituents } = detail;
+    const capNote = document.createElement('p');
+    capNote.className = 'hint';
+    capNote.textContent = approxConstituents && holdings.length < approxConstituents
+      ? `Top ${holdings.length} of ~${approxConstituents} holdings.`
+      : `All ${holdings.length} holdings shown.`;
+    block.appendChild(capNote);
+
+    const grid = document.createElement('div');
+    grid.className = 'etf-detail-grid';
+
+    const countryCol = document.createElement('div');
+    const countrySubhead = document.createElement('p');
+    countrySubhead.className = 'subheading';
+    countrySubhead.textContent = 'Country-wise holdings';
+    countryCol.appendChild(countrySubhead);
+    countryCol.appendChild(buildCountryWiseTable(holdings));
+    grid.appendChild(countryCol);
+
+    const topCol = document.createElement('div');
+    const topSubhead = document.createElement('p');
+    topSubhead.className = 'subheading';
+    topSubhead.textContent = 'Top companies (indirect)';
+    topCol.appendChild(topSubhead);
+    topCol.appendChild(buildTopCompaniesTable(holdings, h.amountEUR));
+    grid.appendChild(topCol);
+
+    block.appendChild(grid);
+    body.appendChild(block);
+  });
+}
+
 // Renders a breakdown table (country or industry) from an aggregateByField()
-// result. idPrefix picks the DOM ids, e.g. 'countryEtf' ->
-// #countryEtfEmpty/#countryEtfTable/#countryEtfBody. keyField is which
-// property of each row holds the group key ('country' or 'industry').
+// result. idPrefix picks the DOM ids, e.g. 'countryExposure' ->
+// #countryExposureEmpty/#countryExposureTable/#countryExposureBody. keyField
+// is which property of each row holds the group key ('country' or 'industry').
 // options.displayNames optionally maps key -> display text (country codes).
 // options.hoverAttr opts a table into hover-highlights-the-map (country
 // tables only; harmless no-op for a code with no matching map region).
 // options.drilldown marks industry rows as click-to-expand (see
 // toggleDrilldown) and stashes each row's per-ticker contributions on the
 // <tr> itself for that handler to read.
+const BREAKDOWN_SCROLL_CAP = 40; // beyond this many rows, re-cap height + scroll as a safety net
+
 function renderBreakdownTable(idPrefix, agg, totalInvested, keyField, options = {}) {
   const { displayNames, hoverAttr, drilldown } = options;
   const empty = document.getElementById(`${idPrefix}Empty`);
   const table = document.getElementById(`${idPrefix}Table`);
   const body = document.getElementById(`${idPrefix}Body`);
+  const scrollWrap = table.closest('.table-scroll');
   body.innerHTML = '';
+
+  if (scrollWrap) scrollWrap.classList.toggle('scroll-capped', agg.length > BREAKDOWN_SCROLL_CAP);
 
   if (agg.length === 0) {
     empty.hidden = false;
@@ -1138,7 +1286,7 @@ function renderHeadline(etfTotal, directTotal, totalInvested) {
   }
   const etfPct = pctFormatter.format((etfTotal / totalInvested) * 100);
   const directPct = pctFormatter.format((directTotal / totalInvested) * 100);
-  el.textContent = `${etfPct}% of portfolio is ETF-driven, ${directPct}% direct.`;
+  el.textContent = `${etfPct}% of portfolio is ETF-driven, ${directPct}% stock-driven.`;
 }
 
 // --- New: divergence panel ---------------------------------------------
@@ -1169,7 +1317,7 @@ function renderDivergenceList(idPrefix, rows) {
     const bars = document.createElement('div');
     bars.className = 'divergence-bars';
     bars.innerHTML = `
-      <span class="divergence-figure">${pctFormatter.format(r.directPct)}% direct</span>
+      <span class="divergence-figure">${pctFormatter.format(r.directPct)}% stocks</span>
       <span class="divergence-vs">vs</span>
       <span class="divergence-figure">${pctFormatter.format(r.etfPct)}% ETF</span>
       <span class="divergence-gap">Δ${pctFormatter.format(r.gap)}pp</span>
@@ -1189,8 +1337,8 @@ function renderDivergence(divergence, directTotal, etfTotal) {
     empty.hidden = false;
     content.hidden = true;
     empty.textContent = directTotal <= 0
-      ? 'No direct holdings yet — add one to compare against your ETF exposure.'
-      : 'No ETF holdings yet — add one to compare against your direct picks.';
+      ? 'No stock holdings yet — add one to compare against your ETF exposure.'
+      : 'No ETF holdings yet — add one to compare against your stock picks.';
     return;
   }
   empty.hidden = true;
@@ -1749,12 +1897,19 @@ let lastDivergence = { companies: [], sectors: [], countries: [] };
 let lastEtfTotal = 0;
 let lastDirectTotal = 0;
 
-// Toggle-filtered (company table, chart, map, summary cards).
+// Per-ETF itemized holdings detail (ticker -> {holdings, approxConstituents}),
+// for the ETF-tab-only per-fund country-wise + top-companies tables.
+let lastEtfHoldingsDetail = new Map();
+
+// Toggle-filtered (company table, map, summary cards).
 let lastAggregatedFiltered = [];
 let lastCountryAggFiltered = [];
 let lastIndustryAggFiltered = [];
 let lastConcentrationFiltered = null;
 let lastTotalInvestedFiltered = 0;
+
+// Pie chart units (my holdings, tab-filtered) - one slice per ETF/stock.
+let lastPieUnits = [];
 
 // Cached raw sources so the toggle can re-filter without re-fetching.
 let cachedAllSources = [];
@@ -1768,6 +1923,9 @@ function applySourceFilter() {
   lastCountryAggFiltered = aggregateByCountry(filtered);
   lastIndustryAggFiltered = aggregateByIndustry(filtered);
   lastConcentrationFiltered = computeConcentration(lastAggregatedFiltered, lastTotalInvestedFiltered);
+  // Pie units are the same tab-filtered sources, one slice per ETF/stock
+  // (my invested amount) - never underlying look-through companies.
+  lastPieUnits = filtered.map((src) => ({ label: src.ticker, amountEUR: src.amountEUR }));
 }
 
 function renderAll() {
@@ -1775,17 +1933,28 @@ function renderAll() {
   renderSourceToggleUI();
   renderHeadline(lastEtfTotal, lastDirectTotal, lastTotalInvestedAll);
   renderTotal(lastTotalInvestedAll);
-  renderHoldingsTable(lastHoldings);
+  // Tab-scoped: ETF tab lists only ETF holdings, Stocks tab only stocks,
+  // Combined lists everything.
+  const holdingsForTab = sourceFilter === 'ETF'
+    ? lastHoldings.filter((h) => h.type === 'ETF')
+    : sourceFilter === 'Direct'
+      ? lastHoldings.filter((h) => h.type === 'Stock')
+      : lastHoldings;
+  const holdingsEmptyMessage = lastHoldings.length > 0 && holdingsForTab.length === 0
+    ? (sourceFilter === 'ETF' ? 'No ETF holdings yet on this tab.' : 'No stock holdings yet on this tab.')
+    : undefined;
+  renderHoldingsTable(holdingsForTab, holdingsEmptyMessage);
 
   renderLookthrough(lastAggregatedFiltered, lastTotalInvestedFiltered);
-  renderChart(lastAggregatedFiltered);
+  renderChart(lastPieUnits);
   renderWorldMap(lastCountryAggFiltered, lastTotalInvestedFiltered);
   renderSummaryCards(lastAggregatedFiltered, lastCountryAggFiltered, lastIndustryAggFiltered, lastTotalInvestedFiltered, lastConcentrationFiltered);
+  renderEtfDetail();
 
-  renderBreakdownTable('countryEtf', lastCountryAggEtf, lastTotalInvestedAll, 'country', { displayNames: COUNTRY_NAMES, hoverAttr: 'country' });
-  renderBreakdownTable('countryStock', lastCountryAggStock, lastTotalInvestedAll, 'country', { displayNames: COUNTRY_NAMES, hoverAttr: 'country' });
-  renderBreakdownTable('industryEtf', lastIndustryAggEtf, lastTotalInvestedAll, 'industry', { drilldown: true });
-  renderBreakdownTable('industryStock', lastIndustryAggStock, lastTotalInvestedAll, 'industry', { drilldown: true });
+  // Tab-scoped full-width rows (item 7): reflect the active Combined/ETF/
+  // Stocks filter, so % is always of that tab's own total.
+  renderBreakdownTable('countryExposure', lastCountryAggFiltered, lastTotalInvestedFiltered, 'country', { displayNames: COUNTRY_NAMES, hoverAttr: 'country' });
+  renderBreakdownTable('industryExposure', lastIndustryAggFiltered, lastTotalInvestedFiltered, 'industry', { drilldown: true });
 
   renderOverallCountry(lastCountryAggAll, lastTotalInvestedAll);
   renderDivergence(lastDivergence, lastDirectTotal, lastEtfTotal);
@@ -1818,6 +1987,7 @@ async function refreshAll() {
     lastDivergence = { companies: [], sectors: [], countries: [] };
     lastEtfTotal = 0;
     lastDirectTotal = 0;
+    lastEtfHoldingsDetail = new Map();
     cachedAllSources = [];
     cachedEtfSources = [];
     cachedStockSources = [];
@@ -1839,6 +2009,7 @@ async function refreshAll() {
         components,
         countryComponents: allocation.countryComponents,
         industryComponents: allocation.industryComponents,
+        countryIndustryJoint: allocation.countryIndustryJoint,
       };
     })
   );
@@ -1848,6 +2019,13 @@ async function refreshAll() {
   cachedAllSources = sources;
   cachedEtfSources = etfSources;
   cachedStockSources = stockSources;
+
+  // Per-ETF itemized holdings detail (real rows only, no residual line) for
+  // the per-ETF country-wise + top-companies tables on the ETF tab.
+  const detailEntries = await Promise.all(
+    etfSources.map(async (s) => [s.ticker, await resolveEtfHoldingsDetail(s.ticker)])
+  );
+  lastEtfHoldingsDetail = new Map(detailEntries.filter(([, v]) => v));
 
   lastAggregatedAll = aggregateExposure(sources);
   lastCountryAggAll = aggregateByCountry(sources);
@@ -2029,7 +2207,11 @@ function handleRowHoverOut(e) {
 function handleDrilldownClick(e) {
   const tr = e.target.closest('tr.drilldown-row, .tree-industry-row.drilldown-row');
   if (!tr) return;
-  toggleDrilldown(tr, lastTotalInvestedAll);
+  // Industry exposure is tab-scoped (item 7/8: % of that tab's own total);
+  // the country -> industry trees are always ETF-only/Stock-only regardless
+  // of the tab, so they keep using the whole-portfolio total as before.
+  const isTabScoped = !!tr.closest('#industryExposureBody');
+  toggleDrilldown(tr, isTabScoped ? lastTotalInvestedFiltered : lastTotalInvestedAll);
 }
 
 function handleSnapshotSubmit(e) {
@@ -2063,7 +2245,7 @@ function init() {
   dateInput.max = todayStr();
 
   // Hovering a company/country row highlights that country on the map.
-  ['lookthroughBody', 'countryEtfBody', 'countryStockBody', 'overallCountryBody'].forEach((id) => {
+  ['lookthroughBody', 'countryExposureBody', 'overallCountryBody'].forEach((id) => {
     const el = document.getElementById(id);
     el.addEventListener('mouseover', handleRowHoverIn);
     el.addEventListener('mouseout', handleRowHoverOut);
@@ -2071,7 +2253,7 @@ function init() {
 
   // Clicking an industry row (breakdown tables or tree leaves) drills down
   // into which holdings contribute. Delegated once per container.
-  ['industryEtfBody', 'industryStockBody', 'treeEtfBody', 'treeStockBody'].forEach((id) => {
+  ['industryExposureBody', 'treeEtfBody', 'treeStockBody'].forEach((id) => {
     document.getElementById(id).addEventListener('click', handleDrilldownClick);
   });
 
