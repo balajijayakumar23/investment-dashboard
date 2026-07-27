@@ -104,7 +104,8 @@
       <p class="hint">One slice per ETF/stock you hold (by invested amount) — reflects the filter above.</p>
       <div id="chartEmpty" class="empty" hidden>Add holdings to see the allocation chart.</div>
       <div id="chartWrap" hidden>
-        <canvas id="allocationChart" width="480" height="480"></canvas>
+        <div class="chart-canvas-box"><canvas id="allocationChart"></canvas></div>
+        <div id="chartLegend" class="chart-legend"></div>
       </div>
     </section>
 
@@ -258,11 +259,11 @@
       <div id="historyContent" hidden>
         <div class="history-chart-block">
           <p class="subheading">Total invested</p>
-          <canvas id="historyTotalChart" height="160"></canvas>
+          <div class="chart-frame"><canvas id="historyTotalChart"></canvas></div>
         </div>
         <div class="history-chart-block">
           <p class="subheading">Per-ticker amount</p>
-          <canvas id="historyPerTickerChart" height="160"></canvas>
+          <div class="chart-frame"><canvas id="historyPerTickerChart"></canvas></div>
         </div>
         <div class="history-chart-block">
           <p class="subheading history-drift-heading">
@@ -273,11 +274,11 @@
               <option value="company">Top company</option>
             </select>
           </p>
-          <canvas id="historyDriftChart" height="160"></canvas>
+          <div class="chart-frame"><canvas id="historyDriftChart"></canvas></div>
         </div>
         <div class="history-chart-block">
           <p class="subheading">Diversification (effective holdings / HHI)</p>
-          <canvas id="historyDiversificationChart" height="160"></canvas>
+          <div class="chart-frame"><canvas id="historyDiversificationChart"></canvas></div>
         </div>
       </div>
     </section>

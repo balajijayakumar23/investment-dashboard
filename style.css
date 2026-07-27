@@ -859,16 +859,118 @@ tr[data-country] {
 /* =========================================================================
    CHART / MAP CONTAINERS
    ========================================================================= */
+
+/* Chart.js canvases always live inside a sized, position:relative frame -
+   with maintainAspectRatio:false (see app.js), Chart.js resizes the canvas
+   to exactly fill this box, so the box's own height is what keeps a chart
+   from collapsing or ballooning, and width:100% (capped by max-width) is
+   what keeps it from ever exceeding the card's padded content box. */
+canvas {
+  max-width: 100%;
+  display: block;
+}
+
+.chart-frame {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  /* Required, not just cosmetic: without this, an oversized canvas (e.g.
+     one Chart.js sized during a wider layout, before a later resize/rotate)
+     props open its own parent's contribution to the page's scrollWidth
+     instead of being clipped - which also confuses Chart.js's own
+     ResizeObserver into never seeing the container "shrink". Clipping here
+     is what makes shrinking actually take effect. */
+  overflow: hidden;
+}
+
+/* #chartWrap is a plain flow container (no fixed height of its own) - the
+   canvas box below is what's height-bounded, and the legend flows
+   naturally beneath it, so the legend can never be squeezed into - or
+   overflow out of - a shared fixed-height box with the pie. */
 #chartWrap {
-  max-width: 380px;
+  /* NOTE: width:100% (not just max-width) is required here - a flex item
+     with an auto cross-axis margin (used below to center it) stops
+     stretching to fill its flex-column parent's width and instead sizes to
+     its own max-content/max-width, which let it overflow a narrower card. */
+  width: 100%;
+  max-width: 420px;
   margin: 0 auto;
+}
+
+.chart-canvas-box {
+  position: relative;
+  width: 100%;
+  /* Scales with viewport but never collapses or balloons. */
+  height: clamp(260px, 32vw, 420px);
+  /* Required, not just cosmetic: without this, an oversized canvas (e.g.
+     one Chart.js sized during a wider layout, before a later resize/rotate)
+     props open its own parent's contribution to the page's scrollWidth
+     instead of being clipped - which also confuses Chart.js's own
+     ResizeObserver into never seeing the container "shrink". Clipping here
+     is what makes shrinking actually take effect. */
+  overflow: hidden;
+}
+
+/* Custom HTML legend (not Chart.js's built-in one) - a plain wrapping flex
+   row is inherently immune to the canvas-based legend layout overflowing
+   or clipping long/many labels; it just grows the card's natural height
+   instead. */
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 16px;
+  margin-top: 14px;
+  padding: 0 4px;
+}
+
+.chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  max-width: 100%;
+}
+
+.chart-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-legend-label {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  .chart-canvas-box {
+    height: clamp(220px, 55vw, 300px);
+  }
+  .chart-frame {
+    height: 220px;
+  }
 }
 
 #worldMap {
   width: 100%;
   height: 380px;
+  max-width: 100%;
   background: var(--card-bg-2);
   border-radius: var(--radius-md);
+  /* jsVectorMap sizes its inner SVG explicitly on init/updateSize() rather
+     than via CSS - without this, an SVG sized for a wider layout (e.g.
+     before a window resize/rotate) bleeds past this box instead of being
+     clipped, forcing the whole page wider. See the resize handler in
+     app.js that calls worldMapInstance.updateSize(). */
+  overflow: hidden;
+}
+
+@media (max-width: 639px) {
+  #worldMap {
+    height: 260px;
+  }
 }
 
 .jvm-tooltip {
@@ -1217,9 +1319,30 @@ footer {
     flex-direction: column;
   }
 
+  /* #tickerInput/#amountInput's flex-basis (240px/160px, set for the
+     desktop row layout) becomes a HEIGHT once the container above switches
+     to flex-direction:column - flex-basis sizes the main axis, and column
+     flips the main axis to vertical. Reset it back to auto so width:100%
+     is the only thing sizing them here. */
   #addForm input,
   #addForm button {
     width: 100%;
+    flex: 1 1 auto;
+    /* Explicit, capped control height (not "huge") - box-sizing:border-box
+       (global) means padding is included, so this is the true rendered
+       height regardless of font metrics. */
+    height: 44px;
+    padding: 0 14px;
+    /* 16px minimum - anything smaller makes iOS Safari auto-zoom the page
+       on focus, which is the "far too large"-feeling jump the fields were
+       showing. */
+    font-size: 16px;
+  }
+
+  #addForm button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .actions-cell {
@@ -1232,5 +1355,20 @@ footer {
   .tile-divergence,
   .tile-history {
     grid-column: span 1;
+  }
+
+  /* Slightly larger tap targets on touch-sized screens. */
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .segmented-btn {
+    padding: 10px 14px;
+  }
+
+  .link-btn.icon-btn {
+    width: 36px;
+    height: 36px;
   }
 }

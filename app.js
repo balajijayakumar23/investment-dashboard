@@ -728,6 +728,31 @@ function palette(n) {
 // never underlying look-through companies. `units` is built from the same
 // tab-filtered source list as everything else (see buildPieUnits), so
 // percentages always reconcile with the tab's own total.
+// Custom HTML legend (below the canvas, inside #chartWrap) instead of
+// Chart.js's own canvas-drawn legend - a plain wrapping flex row can never
+// overflow or clip a long/many-item legend the way a canvas-based layout
+// can; it just grows the card's natural height instead.
+function renderChartLegend(labels, colors) {
+  const el = document.getElementById('chartLegend');
+  el.innerHTML = '';
+  labels.forEach((label, i) => {
+    const item = document.createElement('span');
+    item.className = 'chart-legend-item';
+
+    const dot = document.createElement('span');
+    dot.className = 'chart-legend-dot';
+    dot.style.backgroundColor = colors[i];
+
+    const text = document.createElement('span');
+    text.className = 'chart-legend-label';
+    text.textContent = label;
+
+    item.appendChild(dot);
+    item.appendChild(text);
+    el.appendChild(item);
+  });
+}
+
 function renderChart(units) {
   const empty = document.getElementById('chartEmpty');
   const wrap = document.getElementById('chartWrap');
@@ -750,6 +775,8 @@ function renderChart(units) {
   const total = data.reduce((s, v) => s + v, 0);
   const colors = palette(units.length);
 
+  renderChartLegend(labels, colors);
+
   const textSecondary = cssVar('--text-secondary', '#4b5157');
   const cardBg = cssVar('--card-bg', '#ffffff');
 
@@ -761,14 +788,16 @@ function renderChart(units) {
     },
     options: {
       responsive: true,
-      // Bottom (not 'right') so the legend wraps across the tile's full
-      // width instead of stacking in a narrow side column that clips or
-      // spills long labels past the tile's edge.
+      // false + the fixed-height .chart-canvas-box frame (see style.css) is
+      // what keeps this chart contained inside its card - with the default
+      // (true), Chart.js sizes the canvas from its own aspect ratio instead
+      // of the actual container box, which is what let it overflow before.
+      maintainAspectRatio: false,
+      // The legend is a custom HTML element below the canvas (see
+      // renderChartLegend/#chartLegend), not Chart.js's own - disabled here
+      // so it isn't drawn twice.
       plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { boxWidth: 12, font: { size: 11 }, color: textSecondary, padding: 10, usePointStyle: true },
-        },
+        legend: { display: false },
         tooltip: {
           backgroundColor: cardBg,
           titleColor: cssVar('--text', '#16181b'),
@@ -1537,6 +1566,23 @@ function handleMapReset() {
   }
 }
 
+// jsVectorMap sizes its inner SVG explicitly on init and has no built-in
+// ResizeObserver (unlike Chart.js's responsive:true) - without this, an SVG
+// sized for a wider layout keeps that size after a window resize/rotation
+// and bleeds past its now-narrower #worldMap box (which is why #worldMap
+// also has overflow:hidden as a safety net - see style.css). Debounced so a
+// drag-resize doesn't call this dozens of times.
+let mapResizeTimer = null;
+function handleWindowResize() {
+  clearTimeout(mapResizeTimer);
+  mapResizeTimer = setTimeout(() => {
+    if (worldMapInstance && typeof worldMapInstance.updateSize === 'function') {
+      worldMapInstance.updateSize();
+      paintMapColors();
+    }
+  }, 150);
+}
+
 function applyBlurButtonState() {
   const btn = document.getElementById('blurToggle');
   btn.setAttribute('aria-pressed', String(isBlurred));
@@ -1717,6 +1763,11 @@ function baseLineOptions() {
   const cardBg = cssVar('--card-bg', '#ffffff');
   return {
     responsive: true,
+    // Each of these 4 canvases lives inside a fixed-height .chart-frame
+    // (see style.css) - false lets Chart.js fill that box exactly instead
+    // of sizing itself from an aspect ratio, which is what kept these from
+    // being containable on narrow cards.
+    maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     scales: {
       x: { ticks: { color: textSecondary, font: { size: 10 } }, grid: { color: border } },
@@ -2236,6 +2287,7 @@ function init() {
   document.getElementById('blurToggle').addEventListener('click', handleBlurToggle);
   document.getElementById('sourceToggle').addEventListener('click', handleSourceFilterClick);
   document.getElementById('mapResetBtn').addEventListener('click', handleMapReset);
+  window.addEventListener('resize', handleWindowResize);
   document.getElementById('snapshotForm').addEventListener('submit', handleSnapshotSubmit);
   document.getElementById('snapshotListBody').addEventListener('click', handleSnapshotListClick);
   document.getElementById('driftDimension').addEventListener('change', handleDriftDimensionChange);
