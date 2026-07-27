@@ -380,7 +380,7 @@ main {
 }
 
 .tile-holdings tbody td {
-  padding: 8px 6px;
+  padding: 8px 4px;
 }
 
 .holding-cell {
@@ -416,11 +416,21 @@ main {
 
 /* Unlike .table-scroll's default (which bleeds to the tile's bottom edge -
    correct when it's the tile's only/last element), -sm is used for multiple
-   sub-tables stacked inside one card, so it stays fully contained instead. */
+   sub-tables stacked inside one card, so it stays fully contained instead.
+   Auto-sizes to fit its rows (no scroll) like every other table in the
+   dashboard - .scroll-capped (toggled in JS past a row-count safety net)
+   reinstates a max-height + scroll only for an extreme row count. */
 .table-scroll-sm {
-  --table-max-h: 170px;
+  max-height: none;
+  overflow-y: visible;
+  overflow-x: auto;
   margin: 0 0 16px;
   padding: 0;
+}
+
+.table-scroll-sm.scroll-capped {
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 /* =========================================================================

@@ -1236,6 +1236,9 @@ function renderOverlap(overlapCompanies, etfPairOverlap, holdingsCount, totalInv
   const companyBody = document.getElementById('overlapCompanyBody');
   companyBody.innerHTML = '';
 
+  const companyScrollWrap = companyTable.closest('.table-scroll');
+  if (companyScrollWrap) companyScrollWrap.classList.toggle('scroll-capped', overlapCompanies.length > BREAKDOWN_SCROLL_CAP);
+
   if (overlapCompanies.length === 0) {
     companyEmpty.hidden = false;
     companyTable.hidden = true;
@@ -1273,6 +1276,9 @@ function renderOverlap(overlapCompanies, etfPairOverlap, holdingsCount, totalInv
   const pairTable = document.getElementById('overlapPairTable');
   const pairBody = document.getElementById('overlapPairBody');
   pairBody.innerHTML = '';
+
+  const pairScrollWrap = pairTable.closest('.table-scroll');
+  if (pairScrollWrap) pairScrollWrap.classList.toggle('scroll-capped', etfPairOverlap.length > BREAKDOWN_SCROLL_CAP);
 
   if (etfPairOverlap.length === 0) {
     pairEmpty.hidden = false;
@@ -1633,6 +1639,9 @@ function renderSnapshotList(snapshots) {
   const table = document.getElementById('snapshotListTable');
   const body = document.getElementById('snapshotListBody');
   body.innerHTML = '';
+
+  const scrollWrap = table.closest('.table-scroll');
+  if (scrollWrap) scrollWrap.classList.toggle('scroll-capped', snapshots.length > BREAKDOWN_SCROLL_CAP);
 
   if (snapshots.length === 0) {
     empty.hidden = false;
